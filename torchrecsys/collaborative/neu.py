@@ -2,8 +2,8 @@
 
 import torch
 from torch.autograd import Variable
-from recall.embeddings.init_embeddings import ScaledEmbedding
-from recall.helper.cuda import cpu, gpu
+from torchrecsys.embeddings.init_embeddings import ScaledEmbedding
+from torchrecsys.helper.cuda import cpu, gpu
 
 class NeuCF(torch.nn.Module):
     

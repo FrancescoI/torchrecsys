@@ -2,8 +2,8 @@
 
 import torch
 from torch.autograd import Variable
-from recall.embeddings.init_embeddings import ScaledEmbedding
-from recall.helper.cuda import gpu
+from torchrecsys.embeddings.init_embeddings import ScaledEmbedding
+from torchrecsys.helper.cuda import gpu
 import pandas as pd
 import numpy as np
 

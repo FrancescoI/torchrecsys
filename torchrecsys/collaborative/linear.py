@@ -2,15 +2,15 @@
 
 import torch
 from torch.autograd import Variable
-from recall.embeddings.init_embeddings import ScaledEmbedding, ZeroEmbedding
-from recall.helper.cuda import gpu
+from torchrecsys.embeddings.init_embeddings import ScaledEmbedding, ZeroEmbedding
+from torchrecsys.helper.cuda import gpu
 import pandas as pd
 import numpy as np
 
-class LightFM(torch.nn.Module):
+class Linear(torch.nn.Module):
     
     def __init__(self, n_users, n_items, n_metadata, n_factors, use_metadata=True, use_cuda=False):
-        super(LightFM, self).__init__()
+        super(Linear, self).__init__()
 
         self.n_users = n_users
         self.n_items = n_items
@@ -99,4 +99,4 @@ class LightFM(torch.nn.Module):
         item_bias = self.item_bias.weight.detach().numpy()
         user_bias = self.user_bias[torch.tensor([user_idx])].detach().numpy()
         
-        return np.dot(user_pred[user_idx, :], item_repr) + item_bias + user_bias
+        return np.dot(user_repr[user_idx, :], item_repr) + item_bias + user_bias

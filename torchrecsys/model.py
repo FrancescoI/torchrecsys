@@ -2,17 +2,17 @@
 
 import torch
 import numpy as np
-from recall.collaborative.lightfm import LightFM
-from recall.collaborative.mlp import MLP
-from recall.collaborative.ease import EASE
-from recall.collaborative.neu import NeuCF
-from recall.helper.cuda import gpu, cpu
-from recall.helper.loss import hinge_loss
-from recall.helper.evaluate import auc_score
-from recall.helper.negative_sampling import get_negative_batch
+from torchrecsys.collaborative.linear import Linear
+from torchrecsys.collaborative.mlp import MLP
+from torchrecsys.collaborative.ease import EASE
+from torchrecsys.collaborative.neu import NeuCF
+from torchrecsys.helper.cuda import gpu, cpu
+from torchrecsys.helper.loss import hinge_loss
+from torchrecsys.helper.evaluate import auc_score
+from torchrecsys.helper.negative_sampling import get_negative_batch
 
 
-class Recall(torch.nn.Module):
+class TorchRecSys(torch.nn.Module):
     
     """
     Encodes users (or item sequences) and items in a low dimensional space, using dot products as similarity measure 
@@ -25,7 +25,7 @@ class Recall(torch.nn.Module):
         dimensionality of the embedding space
     net_type: string
         type of the model/net.
-        "LightFM" -> Collaborative Filtering with (optional) item metadata with add operator and dot product
+        "Linear" -> Collaborative Filtering with (optional) item metadata with add operator and dot product
         "MLP" -> Collaborative Filtering with (optional) item metadata with concat operator and a stack of linear layers
         "NeuCF" -> Combine LightFM and MLP with a concat layer and a stack of linear layers 
         "EASE" -> Embarassingly Shallow Auto-Encoder
@@ -42,6 +42,7 @@ class Recall(torch.nn.Module):
         self.dataset = dataset
         self.n_users = dataset.dataset['user_id'].max() + 1
         self.n_items = dataset.dataset['item_id'].max() + 1
+        
         self.dictionary = dataset.get_item_metadata_dict()
         self.n_metadata = self._get_n_metadata(self.dataset)
         
@@ -67,17 +68,17 @@ class Recall(torch.nn.Module):
     
     def _init_net(self, net_type='lightfm'):
 
-        if net_type == 'lightfm':
-          print('Training LightFM')
-          self.net = LightFM(n_users=self.n_users, 
+        if net_type == 'linear':
+          print('Training Linear Dot Product Model')
+          self.net = Linear(n_users=self.n_users, 
                               n_items=self.n_items, 
                               n_metadata=self.n_metadata, 
                               n_factors=self.n_factors, 
                               use_metadata=self.use_metadata, 
                               use_cuda=self.use_cuda)
+        
         elif net_type == 'mlp':
           print('MLP under_construction')
-          #net = MLP(n_users, n_items, n_metadata, n_metadata_type, n_factors, use_metadata=True, use_cuda=False)
           
         elif net_type == 'ease':
           print('EASE under construction')
