@@ -2,8 +2,9 @@
 
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
+from torch.utils.data import Dataset, DataLoader
 
-class MyDataset():
+class XXX():
     
     def __init__(self, brand):
         
@@ -83,11 +84,18 @@ class MyDataset():
             return None
         
         
-class Dataset():
+class CustomDataset(Dataset):
     
     def __init__(self, dataset):
         
-        pass
+        self.dataset = dataset
+
+    def __len__(self) -> int:
+        return self.dataset.shape[0]
+
+    def __getitem__(self, idx):
+        
+        return self.dataset.iloc[idx]
         
         
     
