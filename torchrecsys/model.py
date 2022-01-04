@@ -66,26 +66,31 @@ class TorchRecSys(torch.nn.Module):
         return n_metadata
 
     
-    def _init_net(self, net_type='lightfm'):
+    def _init_net(self, net_type='linear'):
+
+        assert net_type in ('linear', 'mlp', 'neu', 'ease', 'lstm'), 'Net type must be one of "linear", "mlp", "neu", "ease" or "lstm"'
 
         if net_type == 'linear':
           print('Training Linear Dot Product Model')
           self.net = Linear(n_users=self.n_users, 
-                              n_items=self.n_items, 
-                              n_metadata=self.n_metadata, 
-                              n_factors=self.n_factors, 
-                              use_metadata=self.use_metadata, 
-                              use_cuda=self.use_cuda)
+                            n_items=self.n_items, 
+                            n_metadata=self.n_metadata, 
+                            n_factors=self.n_factors, 
+                            use_metadata=self.use_metadata, 
+                            use_cuda=self.use_cuda)
         
         elif net_type == 'mlp':
-          print('MLP under_construction')
+            NotImplementedError('MLP not implemented yet')
           
         elif net_type == 'ease':
-          print('EASE under construction')
+            NotImplementedError('EASE not implemented yet')
           
         elif net_type == 'neucf':
-          print('NeuCF under construction')
-        
+            NotImplementedError('NeuCF not implemented yet')
+
+        elif net_type == 'lstm':
+            NotImplementedError('LSTM not implemented yet')
+
 
     def forward(self, net, batch, batch_size):
 
