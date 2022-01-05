@@ -86,16 +86,21 @@ class XXX():
         
 class CustomDataset(Dataset):
     
-    def __init__(self, dataset):
+    def __init__(self, dataset, user_id_col, item_id_col, metadata_id_col):
         
         self.dataset = dataset
+        self.user_id = user_id_col
+        self.item_id = item_id_col
+        self.metadata_id = metadata_id_col
 
     def __len__(self) -> int:
         return self.dataset.shape[0]
 
     def __getitem__(self, idx):
         
-        return self.dataset.iloc[idx]
+        return (self.dataset.iloc[idx][self.user_id], 
+                self.dataset.iloc[idx][self.item_id],
+                (self.dataset.iloc[idx][self.metadata_id]))
         
         
     

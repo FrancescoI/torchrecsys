@@ -11,8 +11,8 @@ my_data.fit(metadata=['saleLine', 'macro'])
 
 model = TorchRecSys(dataset=my_data, 
                     n_factors=512, 
-                    net_type='mlp', 
-                    use_metadata=True,
+                    net_type='linear', 
+                    use_metadata=False,
                     use_cuda=False)
 
 optimizer = torch.optim.Adam(model.net.parameters(), lr=4e-3, weight_decay=1e-6)
