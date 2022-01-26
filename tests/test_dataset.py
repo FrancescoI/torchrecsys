@@ -18,6 +18,6 @@ my_data = CustomDataset(dataset=interactions,
                         item_id_col='item_id',
                         metadata_id_col=['gender_id', 'category_id'])
 
-my_data_loader = DataLoader(my_data, batch_size=2)
+my_data_loader = DataLoader(my_data, batch_size=5)
 
 print(next(iter(my_data_loader)))
