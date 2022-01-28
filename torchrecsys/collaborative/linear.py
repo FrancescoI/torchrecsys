@@ -33,26 +33,29 @@ class Linear(torch.nn.Module):
         self.item_bias = gpu(ZeroEmbedding(self.n_items, 1), self.use_cuda)
     
     
-    def forward(self, batch, batch_size):
+    def forward(self, batch, type):
         
         """
         Forward method that express the model as the dot product of user and item embeddings, plus the biases. 
         Item Embeddings itself is the sum of the embeddings of the item ID and its metadata
         """
         
-        user = Variable(gpu(torch.LongTensor(batch['user_id'].values), self.use_cuda))
-        item = Variable(gpu(torch.LongTensor(batch['item_id'].values), self.use_cuda))
+        user = gpu(batch['user_id'], self.use_cuda)
+        item = gpu(batch[type]['item_id'], self.use_cuda)
         
+        ####
         if self.use_metadata:
             metadata = Variable(gpu(torch.LongTensor(list(batch['metadata'])), self.use_cuda))
             metadata = self.metadata(metadata)
+        ###
 
         user_bias = self.user_bias(user)
         item_bias = self.item_bias(item)
         
-        user = self.user(user)
-        item = self.item(item)
+        user_embedding = self.user(user)
+        item_embedding = self.item(item)
         
+        ###
         if self.use_metadata:
         
             ### Reshaping in order to match metadata tensor
@@ -61,42 +64,8 @@ class Linear(torch.nn.Module):
 
             ### sum of latent dimensions
             item = item_metadata.sum(1)
-        
-        net = (user * item).sum(1).view(-1,1) + user_bias + item_bias
+        ###
+
+        net = (user_embedding * item_embedding).sum(1).view(-1,1) + user_bias + item_bias
         
         return net
-    
-    def get_item_representation(self):
-        
-        if self.use_metadata:
-            
-            data = (self.dataset
-                    .dataset[['item_id'] + self.dataset.metadata_id]
-                    .drop_duplicates())
-            
-            mapping = pd.get_dummies(data, columns=[*self.dataset.metadata_id]).values[:, 1:]
-            identity = np.identity(self.dataset.dataset['item_id'].max() + 1)
-            binary = np.hstack([identity, mapping])
-            
-            metadata_representation = np.vstack([self.item.weight.detach().numpy(), self.metadata.weight.detach().numpy()])
-            
-            return np.dot(binary, metadata_representation), binary, metadata_representation
-        
-        else:
-            return self.item.weight.cpu().detach().numpy()
-        
-        
-    def predict(self, user_idx):
-        
-        """
-        It takes a user vector representation (based on user_idx arg) and it takes the dot product with
-        the item representation
-        """
-        
-        item_repr, _, _ = self.get_item_representation()
-        user_repr = self.user.weight.detach().numpy()
-        
-        item_bias = self.item_bias.weight.detach().numpy()
-        user_bias = self.user_bias[torch.tensor([user_idx])].detach().numpy()
-        
-        return np.dot(user_repr[user_idx, :], item_repr) + item_bias + user_bias

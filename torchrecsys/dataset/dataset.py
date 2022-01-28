@@ -117,6 +117,7 @@ class CustomDataset(Dataset):
         self.metadata_id = metadata_id_col
 
         self.num_items = len(self.dataset[self.item_id].unique())
+        self.num_users = len(self.dataset[self.user_id].unique())
 
         self.dataset['negative_item'] = self._get_negative_items()
         self.dataset = self._apply_negative_metadata()
@@ -172,7 +173,7 @@ class CustomDataset(Dataset):
                                     key, value in zip(self.metadata_id, 
                                                       self.dataset.iloc[idx][self.metadata_id])}
                             },
-                'negative_item:id': {
+                'negative_item_id': {
                     'item_id': self.dataset.iloc[idx]['negative_item'],
                     'metadata_id': {key: value for 
                                     key, value in zip(self.metadata_id, 
