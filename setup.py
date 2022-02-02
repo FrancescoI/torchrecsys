@@ -1,16 +1,18 @@
-from setuptools import find_packages, setup
-
-
-# Import version
-#__builtins__.__SPOTLIGHT_SETUP__ = True
+from distutils.core import setup
 
 setup(
-    name='recall',
+    name='torchrecsys',
     version='v0.1.0',
-    packages=find_packages(),
+    packages='torchrecsys',
     install_requires=['torch', 'pandas', 'scipy', 'numpy', 'sklearn'],
     license='MIT',
+    description='A PyTorch implementation of several collaborative filters and sequence model for recommendation systems',
+    author='Francesco Imbriglia',
+    author_email='francesco.imbriglia01@gmail.com',
+    url='https://github.com/francescoi/torchrecsys',
+    download_url='https://github.com/FrancescoI/torchrecsys/archive/refs/tags/v0.1.0.tar.gz'
+    keywords=['recommendation', 'recommender', 'collaborative', 'filtering', 'sequence', 'model', 'pytorch'],
     classifiers=['Development Status :: 3 - Alpha',
                  'License :: OSI Approved :: MIT License',
-                 'Topic :: Scientific/Engineering :: Artificial Intelligence'],
+                 'Topic :: Scientific/Engineering :: Artificial Intelligence']
 )
