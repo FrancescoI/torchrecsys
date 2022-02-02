@@ -63,8 +63,7 @@ class TorchRecSys(torch.nn.Module):
     
     def _init_net(self, net_type='linear'):
 
-        assert (net_type in ('linear', 'mlp', 'neu', 'ease', 'lstm'), 
-                'Net type must be one of "linear", "mlp", "neu", "ease" or "lstm"')
+        assert net_type in ('linear', 'mlp', 'neu', 'ease', 'lstm'), 'Net type must be one of "linear", "mlp", "neu", "ease" or "lstm"'
 
         if net_type == 'linear':
 
@@ -106,7 +105,9 @@ class TorchRecSys(torch.nn.Module):
         loss_value.backward()
         
         optimizer.step()
-        
+
+        return loss_value.item()
+    
       
     def fit(self, dataloader, optimizer, epochs=10):
         
@@ -122,3 +123,5 @@ class TorchRecSys(torch.nn.Module):
                 negative = self.forward(net=self.net, batch=batch, type='negative_item_id')
 
                 loss_value = self.backward(positive, negative, optimizer)
+
+            print(f'|--- Training Loss: {loss_value}')
