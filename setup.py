@@ -1,9 +1,9 @@
-from distutils.core import setup
+from setuptools import find_packages, setup
 
 setup(
     name='torchrecsys',
     version='v0.1.0',
-    packages='torchrecsys',
+    packages=find_packages(),
     install_requires=['torch', 'pandas', 'scipy', 'numpy', 'sklearn'],
     license='MIT',
     description='A PyTorch implementation of several collaborative filters and sequence model for recommendation systems',
