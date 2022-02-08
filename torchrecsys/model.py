@@ -119,12 +119,15 @@ class TorchRecSys(torch.nn.Module):
     def fit(self, dataloader, optimizer, epochs=10, batch_size=512):
 
         print('|-- Loading data in memory')
-        dataloader = dataloader.fit()
+        train, test = dataloader.fit()
 
         training = {}
-
-        for key, values in dataloader.items():
+        for key, values in train.items():
             training.update({key: gpu(values, self.use_cuda)})
+
+        testing = {}
+        for key, values in test.items():
+            testing.update({key: gpu(values, self.use_cuda)})
         
         print('|-- Training model')
         for epoch in range(epochs):
@@ -145,3 +148,11 @@ class TorchRecSys(torch.nn.Module):
                 loss_value = self.backward(positive, negative, optimizer)
 
             print(f'|--- Training Loss: {loss_value}')
+
+            self.net = self.net.eval()
+            positive_test, negative_test = self.forward(net=self.net, batch=testing)
+            loss_value_test = self.backward(positive_test, negative_test, optimizer)
+
+            print(f'|--- Testing Loss: {loss_value_test}')
+
+            

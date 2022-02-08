@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 from torch.utils.data import Dataset
 import torch
+from sklearn.model_selection import train_test_split
+
 
 class DataFarm():
 
@@ -13,7 +15,8 @@ class DataFarm():
                  user_id_col: str, 
                  item_id_col: str,
                  use_metadata: bool, 
-                 metadata_id_col: List[str]):
+                 metadata_id_col: List[str],
+                 split_ratio: float = 0.8):
         
         self.dataset = dataset
 
@@ -27,6 +30,8 @@ class DataFarm():
         self.dataset = self._get_negative_items(self.dataset)
 
         self.use_metadata = use_metadata
+
+        self.split_ratio = split_ratio
         
         if use_metadata:
             self.dataset = self._get_negative_metadata(self.dataset)
@@ -111,19 +116,32 @@ class CustomDataLoader(DataFarm):
 
     def fit(self):
 
+        train, test = train_test_split(self.dataset, test_size=1-self.split_ratio)
+
+        train = {
+                'user_id': torch.from_numpy(train[self.user_id].values),
+                'pos_item_id': torch.from_numpy(train[self.item_id].values),
+                'neg_item_id': torch.from_numpy(train['neg_item'].values)
+                }
+
+        test = {
+                'user_id': torch.from_numpy(test[self.user_id].values),
+                'pos_item_id': torch.from_numpy(test[self.item_id].values),
+                'neg_item_id': torch.from_numpy(test['neg_item'].values)
+                }
+
         if self.use_metadata:
 
-            return {'user_id': torch.from_numpy(self.dataset[self.user_id].values),
-                    'pos_item_id': torch.from_numpy(self.dataset[self.item_id].values),
-                    'pos_metadata_id': [torch.from_numpy(self.dataset[self.metadata_id].values)],
-                    'neg_item_id': torch.from_numpy(self.dataset['neg_item'].values),
-                    'neg_metadata_id': [torch.from_numpy(self.dataset[self.negative_metadata_id].values)]
-                    }
+            train.update({
+                           'pos_metadata_id': [torch.from_numpy(train[self.metadata_id].values)],
+                           'neg_metadata_id': [torch.from_numpy(train[self.negative_metadata_id].values)]
+                          }
+                        )
+            test.update({
+                           'pos_metadata_id': [torch.from_numpy(test[self.metadata_id].values)],
+                           'neg_metadata_id': [torch.from_numpy(test[self.negative_metadata_id].values)]
+                          }
+                        )
 
-        else: 
-
-            return {'user_id': torch.from_numpy(self.dataset[self.user_id].values),
-                    'pos_item_id': torch.from_numpy(self.dataset[self.item_id].values),
-                    'neg_item_id': torch.from_numpy(self.dataset['neg_item'].values),
-                    }
+        return train, test
 
