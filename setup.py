@@ -10,7 +10,7 @@ setup(
     author='Francesco Imbriglia',
     author_email='francesco.imbriglia01@gmail.com',
     url='https://github.com/francescoi/torchrecsys',
-    download_url='https://github.com/FrancescoI/torchrecsys/archive/refs/tags/v0.1.0.tar.gz',
+    download_url='https://github.com/FrancescoI/torchrecsys/archive/refs/tags/v0.1.1.tar.gz',
     keywords=['recommendation', 'recommender', 'collaborative', 'filtering', 'sequence', 'model', 'pytorch'],
     classifiers=['Development Status :: 3 - Alpha',
                  'License :: OSI Approved :: MIT License',
