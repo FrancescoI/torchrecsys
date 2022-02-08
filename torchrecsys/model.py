@@ -41,7 +41,8 @@ class TorchRecSys(torch.nn.Module):
                  n_factors: int = 80, 
                  net_type: str = 'linear', 
                  use_metadata: bool = False, 
-                 use_cuda: bool = False):
+                 use_cuda: bool = False,
+                 debug: bool = False):
 
         super().__init__()
              
@@ -57,6 +58,8 @@ class TorchRecSys(torch.nn.Module):
 
         self.net_type = net_type
         self.use_metadata = use_metadata
+
+        self.debug = debug
 
         self._init_net(net_type=net_type)
 
@@ -132,7 +135,8 @@ class TorchRecSys(torch.nn.Module):
             
             for first in range(0, len(training['user_id']), batch_size):
 
-                print(f'On total of {first / len(training["user_id"]) * 100:.2f}%')
+                if self.debug:    
+                    print(f'On total of {first / len(training["user_id"]) * 100:.2f}%')
                     
                 batch = {k: v[first:first+batch_size] for k, v in training.items()}
 
