@@ -116,7 +116,12 @@ class TorchRecSys(torch.nn.Module):
     def fit(self, dataloader, optimizer, epochs=10, batch_size=512):
 
         print('|-- Loading data in memory')
-        dataloader = gpu(dataloader.fit(), self.use_cuda)
+        dataloader = dataloader.fit()
+
+        training = {}
+
+        for key, values in dataloader.items():
+            training.update({key: gpu(values, self.use_cuda)})
         
         print('|-- Training model')
         for epoch in range(epochs):
@@ -125,11 +130,11 @@ class TorchRecSys(torch.nn.Module):
 
             print(f'Epoch: {epoch+1}')
             
-            for first in range(0, len(dataloader['user_id']), batch_size):
+            for first in range(0, len(training['user_id']), batch_size):
 
-                print(f'On total of {first / len(dataloader["user_id"]) * 100:.2f}%')
+                print(f'On total of {first / len(training["user_id"]) * 100:.2f}%')
                     
-                batch = {k: v[first:first+batch_size] for k, v in dataloader.items()}
+                batch = {k: v[first:first+batch_size] for k, v in training.items()}
 
                 positive, negative = self.forward(net=self.net, batch=batch)
 
