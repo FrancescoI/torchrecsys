@@ -116,7 +116,7 @@ class TorchRecSys(torch.nn.Module):
     def fit(self, dataloader, optimizer, epochs=10, batch_size=512):
 
         print('|-- Loading data in memory')
-        dataloader = dataloader.fit()
+        dataloader = gpu(dataloader.fit(), self.use_cuda)
         
         print('|-- Training model')
         for epoch in range(epochs):

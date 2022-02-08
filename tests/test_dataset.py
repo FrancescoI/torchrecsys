@@ -3,7 +3,8 @@ sys.path.append('C:/Users/imbrigliaf/Documents/torchrecsys/')
 
 import pytest
 import pandas as pd
-from torchrecsys.dataset.dataset import CustomDataset
+from torchrecsys.dataset.dataset import CustomDataLoader, CustomDataset
+from torchrecsys.dataset.dataset import DataFarm
 from torch.utils.data.dataloader import DataLoader
 import torch
 
@@ -16,8 +17,18 @@ interactions = pd.DataFrame({'user': [0, 0, 1, 1, 2],
 my_data = CustomDataset(dataset=interactions,
                         user_id_col='user',
                         item_id_col='item',
+                        use_metadata=True,
                         metadata_id_col=['gender', 'category'])
 
+my_data_loader = DataLoader(my_data, batch_size=3, shuffle=False)
+
+new_data_loader = CustomDataLoader(dataset=interactions,
+                                   user_id_col='user',
+                                   item_id_col='item',
+                                   use_metadata=True,
+                                   metadata_id_col=['gender', 'category'])
+
+print(new_data_loader.fit())
 
 def test_dataloader_attributes():
 
@@ -44,9 +55,6 @@ def test_loader():
     batch = next(iter(my_data_loader))  
 
     assert torch.equal(batch['user_id'], torch.tensor([0, 0]))
-    assert torch.equal(batch['positive_item_id']['item_id'], torch.tensor([0, 1]))
-    
-    for key in batch['positive_item_id']['metadata_id'].keys():
-        assert torch.equal(batch['positive_item_id']['metadata_id'][key], torch.tensor([0, 1]))
+    assert torch.equal(batch['pos_item_id'], torch.tensor([0, 1]))
 
 

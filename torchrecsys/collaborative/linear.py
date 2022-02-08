@@ -40,8 +40,8 @@ class Linear(torch.nn.Module):
         Item Embeddings itself is the sum of the embeddings of the item ID and its metadata
         """
         
-        user = gpu(batch[user_key], self.use_cuda)
-        item = gpu(batch[item_key], self.use_cuda)
+        user = batch[user_key]
+        item = batch[item_key]
         
         ####
         if self.use_metadata:
