@@ -33,15 +33,15 @@ class Linear(torch.nn.Module):
         self.item_bias = gpu(ZeroEmbedding(self.n_items, 1), self.use_cuda)
     
     
-    def forward(self, batch, type):
+    def forward(self, batch, user_key, item_key):
         
         """
         Forward method that express the model as the dot product of user and item embeddings, plus the biases. 
         Item Embeddings itself is the sum of the embeddings of the item ID and its metadata
         """
         
-        user = gpu(batch['user_id'], self.use_cuda)
-        item = gpu(batch[type]['item_id'], self.use_cuda)
+        user = gpu(batch[user_key], self.use_cuda)
+        item = gpu(batch[item_key], self.use_cuda)
         
         ####
         if self.use_metadata:

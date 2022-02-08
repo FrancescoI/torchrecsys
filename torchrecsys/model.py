@@ -47,9 +47,9 @@ class TorchRecSys(torch.nn.Module):
              
         self.dataloader = dataloader
 
-        self.n_users = dataloader.dataset.num_users
-        self.n_items = dataloader.dataset.num_items      
-        self.n_metadata = len(dataloader.dataset.metadata_id)
+        self.n_users = dataloader.num_users
+        self.n_items = dataloader.num_items      
+        self.n_metadata = len(dataloader.metadata_id)
 
         self.n_factors = n_factors
         
@@ -67,7 +67,7 @@ class TorchRecSys(torch.nn.Module):
 
         if net_type == 'linear':
 
-          print('Training Linear Collaborative Filtering')
+          print('Linear Collaborative Filtering')
 
           self.net = Linear(n_users=self.n_users, 
                             n_items=self.n_items, 
@@ -89,11 +89,15 @@ class TorchRecSys(torch.nn.Module):
             NotImplementedError('LSTM not implemented yet')
 
 
-    def forward(self, net, batch, type):
+    def forward(self, net, batch):
 
-        score = gpu(net.forward(batch, type), self.use_cuda)
+        positive_score = gpu(net.forward(batch, user_key='user_id', item_key='pos_item_id'),
+                             self.use_cuda)
 
-        return score
+        negative_score = gpu(net.forward(batch, user_key='user_id', item_key='neg_item_id'),
+                             self.use_cuda)
+
+        return positive_score, negative_score
     
     
     def backward(self, positive, negative, optimizer):
@@ -109,18 +113,25 @@ class TorchRecSys(torch.nn.Module):
         return loss_value.item()
     
       
-    def fit(self, dataloader, optimizer, epochs=10):
+    def fit(self, dataloader, optimizer, epochs=10, batch_size=512):
+
+        print('|-- Loading data in memory')
+        dataloader = dataloader.fit()
         
+        print('|-- Training model')
         for epoch in range(epochs):
 
             self.net = self.net.train()
 
             print(f'Epoch: {epoch+1}')
             
-            for batch in dataloader:
-                                
-                positive = self.forward(net=self.net, batch=batch, type='positive_item_id')
-                negative = self.forward(net=self.net, batch=batch, type='negative_item_id')
+            for first in range(0, len(dataloader['user_id']), batch_size):
+
+                print(f'On total of {first / len(dataloader["user_id"]) * 100:.2f}%')
+                    
+                batch = {k: v[first:first+batch_size] for k, v in dataloader.items()}
+
+                positive, negative = self.forward(net=self.net, batch=batch)
 
                 loss_value = self.backward(positive, negative, optimizer)
 
