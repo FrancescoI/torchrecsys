@@ -25,6 +25,8 @@ class DataFarm():
         self.num_users = len(self.dataset[self.user_id].unique())
 
         self.dataset = self._get_negative_items(self.dataset)
+
+        self.use_metadata = use_metadata
         
         if use_metadata:
             self.dataset = self._get_negative_metadata(self.dataset)
@@ -96,7 +98,7 @@ class CustomDataset(Dataset, DataFarm):
         return self.dataset.shape[0]
 
     def __getitem__(self, idx):
-        
+
         return {'user_id': self.dataset.iloc[idx][self.user_id],
                 'pos_item_id': self.dataset.iloc[idx][self.item_id],
                 'pos_metadata_id': [metadata for metadata in self.dataset.iloc[idx][self.metadata_id]],
@@ -109,10 +111,19 @@ class CustomDataLoader(DataFarm):
 
     def fit(self):
 
-        return {'user_id': torch.from_numpy(self.dataset[self.user_id].values),
-                'pos_item_id': torch.from_numpy(self.dataset[self.item_id].values),
-                'pos_metadata_id': [torch.from_numpy(self.dataset[self.metadata_id].values)],
-                'neg_item_id': torch.from_numpy(self.dataset['neg_item'].values),
-                'neg_metadata_id': [torch.from_numpy(self.dataset[self.negative_metadata_id].values)]
-                }
+        if self.use_metadata:
+
+            return {'user_id': torch.from_numpy(self.dataset[self.user_id].values),
+                    'pos_item_id': torch.from_numpy(self.dataset[self.item_id].values),
+                    'pos_metadata_id': [torch.from_numpy(self.dataset[self.metadata_id].values)],
+                    'neg_item_id': torch.from_numpy(self.dataset['neg_item'].values),
+                    'neg_metadata_id': [torch.from_numpy(self.dataset[self.negative_metadata_id].values)]
+                    }
+
+        else: 
+
+            return {'user_id': torch.from_numpy(self.dataset[self.user_id].values),
+                    'pos_item_id': torch.from_numpy(self.dataset[self.item_id].values),
+                    'neg_item_id': torch.from_numpy(self.dataset['neg_item'].values),
+                    }
 
