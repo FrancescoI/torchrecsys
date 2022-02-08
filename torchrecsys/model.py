@@ -151,7 +151,7 @@ class TorchRecSys(torch.nn.Module):
 
             self.net = self.net.eval()
             positive_test, negative_test = self.forward(net=self.net, batch=testing)
-            loss_value_test = self.backward(positive_test, negative_test, optimizer)
+            loss_value_test = loss_value = hinge_loss(positive_test, negative_test)
 
             print(f'|--- Testing Loss: {loss_value_test}')
 
