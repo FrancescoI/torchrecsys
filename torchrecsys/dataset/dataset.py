@@ -34,7 +34,8 @@ class DataFarm():
         self.split_ratio = split_ratio
         
         if use_metadata:
-            self.dataset = self._get_negative_metadata(self.dataset)
+            self.dataset = self._add_positive_metadata(self.dataset)
+            self.dataset = self._add_negative_metadata(self.dataset)
             self.negative_metadata_id = self._get_negative_metadata_column_names()
   
     def _get_negative_items(self, dataset):
@@ -47,6 +48,12 @@ class DataFarm():
 
         return dataset
 
+    def _add_positive_metadata(self, dataset):
+
+        dataset['pos_metadata_id'] = self.dataset[self.metadata_id].values.tolist()
+
+        return dataset
+
     def _get_metadata(self):
 
         metadata = (self.dataset
@@ -56,7 +63,7 @@ class DataFarm():
 
         return metadata
                         
-    def _get_negative_metadata(self, dataset):
+    def _add_negative_metadata(self, dataset):
         
         metadata = self._get_metadata()
 
@@ -65,6 +72,8 @@ class DataFarm():
         metadata.columns = ['neg_item'] + metadata_negative_names
 
         dataset = pd.merge(dataset, metadata, on='neg_item')
+
+        dataset['neg_metadata_id'] = dataset[metadata_negative_names].values.tolist()
 
         return dataset
 
@@ -116,30 +125,34 @@ class CustomDataLoader(DataFarm):
 
     def fit(self):
 
-        train, test = train_test_split(self.dataset, test_size=1-self.split_ratio)
+        df_train, df_test = train_test_split(self.dataset, test_size=1-self.split_ratio)
+
+        ### Need to have index=0 so that torch.Tensor can work from pd.Series
+        df_train = df_train.reset_index()
+        df_test = df_test.reset_index()
 
         train = {
-                'user_id': torch.from_numpy(train[self.user_id].values),
-                'pos_item_id': torch.from_numpy(train[self.item_id].values),
-                'neg_item_id': torch.from_numpy(train['neg_item'].values)
+                'user_id': torch.from_numpy(df_train[self.user_id].values),
+                'pos_item_id': torch.from_numpy(df_train[self.item_id].values),
+                'neg_item_id': torch.from_numpy(df_train['neg_item'].values)
                 }
 
         test = {
-                'user_id': torch.from_numpy(test[self.user_id].values),
-                'pos_item_id': torch.from_numpy(test[self.item_id].values),
-                'neg_item_id': torch.from_numpy(test['neg_item'].values)
+                'user_id': torch.from_numpy(df_test[self.user_id].values),
+                'pos_item_id': torch.from_numpy(df_test[self.item_id].values),
+                'neg_item_id': torch.from_numpy(df_test['neg_item'].values)
                 }
 
         if self.use_metadata:
 
             train.update({
-                           'pos_metadata_id': [torch.from_numpy(train[self.metadata_id].values)],
-                           'neg_metadata_id': [torch.from_numpy(train[self.negative_metadata_id].values)]
+                           'pos_metadata_id': torch.Tensor(df_train['pos_metadata_id']),
+                           'neg_metadata_id': torch.Tensor(df_train['neg_metadata_id']),
                           }
                         )
             test.update({
-                           'pos_metadata_id': [torch.from_numpy(test[self.metadata_id].values)],
-                           'neg_metadata_id': [torch.from_numpy(test[self.negative_metadata_id].values)]
+                           'pos_metadata_id': torch.Tensor(df_test['pos_metadata_id']),
+                           'neg_metadata_id': torch.Tensor(df_test['neg_metadata_id'])
                           }
                         )
 
