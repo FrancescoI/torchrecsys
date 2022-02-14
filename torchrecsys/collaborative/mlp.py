@@ -31,25 +31,9 @@ class MLP(torch.nn.Module):
         self.user = gpu(ScaledEmbedding(self.n_users, self.n_factors), self.use_cuda)
         self.item = gpu(ScaledEmbedding(self.n_items, self.n_factors), self.use_cuda)
         
-        self.user_bias = gpu(ZeroEmbedding(self.n_users, 1), self.use_cuda)
-        self.item_bias = gpu(ZeroEmbedding(self.n_items, 1), self.use_cuda)
-        
-        self.linear_1 = gpu(torch.nn.Linear(self.input_shape, 1_024, self.use_cuda))
-        self.linear_2 = gpu(torch.nn.Linear(1_024, 128, self.use_cuda))
-        self.linear_3 = gpu(torch.nn.Linear(128, 1, self.use_cuda))
-        
-    def _get_n_metadata(self, dataset):
-        
-        n_metadata = 0
-        
-        for col in dataset.metadata_id:
-            n_metadata += dataset.dataset[col].max() + 1
-        
-        return n_metadata
-    
-    def _get_n_metadata_type(self, dataset):
-        
-        return len(dataset.metadata)
+        self.linear_1 = gpu(torch.nn.Linear(self.input_shape, 1_024), self.use_cuda)
+        self.linear_2 = gpu(torch.nn.Linear(1_024, 128), self.use_cuda)
+        self.linear_3 = gpu(torch.nn.Linear(128, 1), self.use_cuda)
 
 
     def forward(self, batch, user_key, item_key, metadata_key=None):
