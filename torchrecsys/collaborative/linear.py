@@ -8,6 +8,20 @@ import pandas as pd
 import numpy as np
 
 class Linear(torch.nn.Module):
+
+    """
+    It trains a linear collaborative filtering using content data (eg: product category, brand, etc) as optional.
+    The user x item matrix is factorized into two matrices: user and item embeddings, of shape (n_users, n_factors) and (n_items, n_factors).
+
+    Parameters:
+    -----------
+    n_users: int -> number of unique users in the dataset
+    n_items: int -> number of unique items in the dataset
+    n_metadata: int -> number of unique metadata in the dataset
+    n_factors: int -> number of latent factors to be used in the factorization
+    use_metadata: bool -> whether to use metadata or not
+    use_cuda: bool -> whether to use cuda or not
+    """
     
     def __init__(self, n_users, n_items, n_metadata, n_factors, use_metadata=True, use_cuda=False):
         super(Linear, self).__init__()
@@ -33,7 +47,7 @@ class Linear(torch.nn.Module):
         self.item_bias = gpu(ZeroEmbedding(self.n_items, 1), self.use_cuda)
     
     
-    def forward(self, batch, user_key, item_key):
+    def forward(self, batch, user_key, item_key, metadata_key=None):
         
         """
         Forward method that express the model as the dot product of user and item embeddings, plus the biases. 
@@ -45,7 +59,7 @@ class Linear(torch.nn.Module):
         
         ####
         if self.use_metadata:
-            metadata = Variable(gpu(torch.LongTensor(list(batch['metadata'])), self.use_cuda))
+            metadata = batch[metadata_key]
             metadata = self.metadata(metadata)
         ###
 

@@ -80,7 +80,15 @@ class TorchRecSys(torch.nn.Module):
                             use_cuda=self.use_cuda)
         
         elif net_type == 'mlp':
-            NotImplementedError('MLP not implemented yet')
+
+            print('Multi Layer Perceptron')
+
+            self.net = MLP(n_users=self.n_users, 
+                           n_items=self.n_items, 
+                           n_metadata=self.n_metadata, 
+                           n_factors=self.n_factors, 
+                           use_metadata=self.use_metadata, 
+                           use_cuda=self.use_cuda)
           
         elif net_type == 'ease':
             NotImplementedError('EASE not implemented yet')
@@ -94,10 +102,16 @@ class TorchRecSys(torch.nn.Module):
 
     def forward(self, net, batch):
 
-        positive_score = gpu(net.forward(batch, user_key='user_id', item_key='pos_item_id'),
+        positive_score = gpu(net.forward(batch, 
+                                         user_key='user_id', 
+                                         item_key='pos_item_id',
+                                         metadata_key='pos_metadata_id'),
                              self.use_cuda)
 
-        negative_score = gpu(net.forward(batch, user_key='user_id', item_key='neg_item_id'),
+        negative_score = gpu(net.forward(batch, 
+                                         user_key='user_id', 
+                                         item_key='neg_item_id',
+                                         metadata_key='neg_metadata_id'),
                              self.use_cuda)
 
         return positive_score, negative_score
@@ -116,7 +130,7 @@ class TorchRecSys(torch.nn.Module):
         return loss_value.item()
     
       
-    def fit(self, dataloader, optimizer, epochs=10, batch_size=512):
+    def fit(self, dataloader, optimizer, epochs=10, batch_size=512, evaluate=False):
 
         print('|-- Loading data in memory')
         train, test = dataloader.fit()
@@ -149,10 +163,12 @@ class TorchRecSys(torch.nn.Module):
 
             print(f'|--- Training Loss: {loss_value}')
 
-            self.net = self.net.eval()
-            positive_test, negative_test = self.forward(net=self.net, batch=testing)
-            loss_value_test = loss_value = hinge_loss(positive_test, negative_test)
+            if evaluate:
 
-            print(f'|--- Testing Loss: {loss_value_test}')
+                self.net = self.net.eval()
+                positive_test, negative_test = self.forward(net=self.net, batch=testing)
+                loss_value_test = loss_value = hinge_loss(positive_test, negative_test)
+
+                print(f'|--- Testing Loss: {loss_value_test}')
 
             
