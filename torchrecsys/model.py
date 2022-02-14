@@ -10,6 +10,7 @@ from torchrecsys.helper.cuda import gpu, cpu
 from torchrecsys.helper.loss import hinge_loss
 from torchrecsys.helper.evaluate import auc_score
 from torchrecsys.helper.negative_sampling import get_negative_batch
+import random
 
 
 class TorchRecSys(torch.nn.Module):
@@ -138,10 +139,6 @@ class TorchRecSys(torch.nn.Module):
         training = {}
         for key, values in train.items():
             training.update({key: gpu(values, self.use_cuda)})
-
-        testing = {}
-        for key, values in test.items():
-            testing.update({key: gpu(values, self.use_cuda)})
         
         print('|-- Training model')
         for epoch in range(epochs):
@@ -166,9 +163,15 @@ class TorchRecSys(torch.nn.Module):
             if evaluate:
 
                 self.net = self.net.eval()
+
+                all_indices = range(len(test['user_id']))
+                random_indices = random.sample(all_indices, min(50_000, len(all_indices))) ### takes random 50k samples
+
+                testing = {}
+                for key, values in test.items():
+                    testing.update({key: gpu(values[random_indices], self.use_cuda)})
+
                 positive_test, negative_test = self.forward(net=self.net, batch=testing)
-                loss_value_test = loss_value = hinge_loss(positive_test, negative_test)
+                loss_value_test = hinge_loss(positive_test, negative_test)
 
                 print(f'|--- Testing Loss: {loss_value_test}')
-
-            
