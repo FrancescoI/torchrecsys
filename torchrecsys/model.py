@@ -6,6 +6,7 @@ from torchrecsys.collaborative.linear import Linear
 from torchrecsys.collaborative.mlp import MLP
 from torchrecsys.collaborative.ease import EASE
 from torchrecsys.collaborative.neu import NeuCF
+from torchrecsys.collaborative.fm import FM
 from torchrecsys.helper.cuda import gpu, cpu
 from torchrecsys.helper.loss import hinge_loss
 from torchrecsys.helper.evaluate import auc_score
@@ -64,10 +65,14 @@ class TorchRecSys(torch.nn.Module):
 
         self._init_net(net_type=net_type)
 
+        self.training = {}
+        for key, values in dataloader.train.items():
+            self.training.update({key: gpu(values, self.use_cuda)})
+
     
     def _init_net(self, net_type='linear'):
 
-        assert net_type in ('linear', 'mlp', 'neu', 'ease', 'lstm'), 'Net type must be one of "linear", "mlp", "neu", "ease" or "lstm"'
+        assert net_type in ('linear', 'mlp', 'neucf', 'fm', 'lstm'), 'Net type must be one of "linear", "mlp", "neu", "ease" or "lstm"'
 
         if net_type == 'linear':
 
@@ -91,8 +96,13 @@ class TorchRecSys(torch.nn.Module):
                            use_metadata=self.use_metadata, 
                            use_cuda=self.use_cuda)
           
-        elif net_type == 'ease':
-            NotImplementedError('EASE not implemented yet')
+        elif net_type == 'fm':
+            self.net = FM(n_users=self.n_users, 
+                          n_items=self.n_items, 
+                          n_metadata=self.n_metadata, 
+                          n_factors=self.n_factors, 
+                          use_metadata=self.use_metadata, 
+                          use_cuda=self.use_cuda)
           
         elif net_type == 'neucf':
             NotImplementedError('NeuCF not implemented yet')
@@ -131,14 +141,7 @@ class TorchRecSys(torch.nn.Module):
         return loss_value.item()
     
       
-    def fit(self, dataloader, optimizer, epochs=10, batch_size=512, evaluate=False):
-
-        print('|-- Loading data in memory')
-        train, test = dataloader.fit()
-
-        training = {}
-        for key, values in train.items():
-            training.update({key: gpu(values, self.use_cuda)})
+    def fit(self, optimizer, epochs=10, batch_size=512):
         
         print('|-- Training model')
         for epoch in range(epochs):
@@ -147,12 +150,12 @@ class TorchRecSys(torch.nn.Module):
 
             print(f'Epoch: {epoch+1}')
             
-            for first in range(0, len(training['user_id']), batch_size):
+            for first in range(0, len(self.training['user_id']), batch_size):
 
                 if self.debug:    
-                    print(f'On total of {first / len(training["user_id"]) * 100:.2f}%')
+                    print(f'On total of {first / len(self.training["user_id"]) * 100:.2f}%')
                     
-                batch = {k: v[first:first+batch_size] for k, v in training.items()}
+                batch = {k: v[first:first+batch_size] for k, v in self.training.items()}
 
                 positive, negative = self.forward(net=self.net, batch=batch)
 
@@ -160,18 +163,26 @@ class TorchRecSys(torch.nn.Module):
 
             print(f'|--- Training Loss: {loss_value}')
 
-            if evaluate:
 
-                self.net = self.net.eval()
+    def evaluate(self, dataloader):
 
-                all_indices = range(len(test['user_id']))
-                random_indices = random.sample(all_indices, min(50_000, len(all_indices))) ### takes random 50k samples
+        self.net = self.net.eval()
+        
+        all_indices = range(len(dataloader.test['user_id']))
+        random_indices = random.sample(all_indices, min(50_000, len(all_indices))) ### takes random 50k samples
+        
+        testing = {}
+        for key, values in dataloader.test.items():
+            testing.update({key: gpu(values[random_indices], self.use_cuda)})
 
-                testing = {}
-                for key, values in test.items():
-                    testing.update({key: gpu(values[random_indices], self.use_cuda)})
+        positive_test, negative_test = self.forward(net=self.net, batch=testing)
+        loss_value_test = hinge_loss(positive_test, negative_test)
 
-                positive_test, negative_test = self.forward(net=self.net, batch=testing)
-                loss_value_test = hinge_loss(positive_test, negative_test)
+        print(f'|--- Testing Loss: {loss_value_test}')
 
-                print(f'|--- Testing Loss: {loss_value_test}')
+    
+    def predict(self, user_id, top_k):
+        
+        self.net = self.net.eval()
+
+        return self.net.predict(user_id, top_k)

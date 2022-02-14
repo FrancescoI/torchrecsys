@@ -123,6 +123,18 @@ class CustomDataset(Dataset, DataFarm):
 
 class CustomDataLoader(DataFarm):
 
+    def __init__(self, 
+                 dataset: pd.DataFrame, 
+                 user_id_col: str, 
+                 item_id_col: str,
+                 use_metadata: bool, 
+                 metadata_id_col: List[str],
+                 split_ratio: float = 0.8):
+        
+        super().__init__(dataset, user_id_col, item_id_col, use_metadata, metadata_id_col, split_ratio)
+        
+        self.train, self.test = self.fit()
+
     def fit(self):
 
         df_train, df_test = train_test_split(self.dataset, test_size=1-self.split_ratio)
@@ -157,4 +169,3 @@ class CustomDataLoader(DataFarm):
                         )
 
         return train, test
-

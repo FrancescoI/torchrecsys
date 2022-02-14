@@ -41,20 +41,20 @@ class MLP(torch.nn.Module):
         user = batch[user_key]
         item = batch[item_key]
 
-        user = self.user(user)
-        item = self.item(item)
+        user_embedding = self.user(user)
+        item_embedding = self.item(item)
         
         if self.use_metadata:
             metadata = batch[metadata_key]
-            metadata = self.metadata(metadata)
+            metadata_embedding = self.metadata(metadata)
                 
             ### Reshaping in order to match metadata tensor
-            item = item.reshape(len(batch['item_id'].values), 1, self.n_factors)
+            item_embedding = item_embedding.reshape(len(batch['item_id'].values), 1, self.n_factors)
 
-            item_metadata = torch.cat([item, metadata], axis=1)
-            item = item_metadata.sum(1)
+            item_metadata_embedding = torch.cat([item_emb, metadata_embedding], axis=1)
+            item_embedding = item_metadata_embedding.sum(1)
 
-        cat = torch.cat([user, item], axis=1)
+        cat = torch.cat([user_embedding, item_embedding], axis=1)
 
         net = self.linear_1(cat)
         net = torch.nn.functional.relu(net)
@@ -65,3 +65,29 @@ class MLP(torch.nn.Module):
         net = self.linear_3(net)
         
         return net
+
+    def predict(self, user_id, top_k=None):
+
+        """
+        It returns sorted item indexes for a given user.
+        """
+
+        user_emb = self.user(torch.tensor(user_id)).repeat(self.n_items, 1) 
+        item_emb = self.item.weight.data
+
+        cat = torch.cat([user_emb, item_emb], axis=1)
+
+        net = self.linear_1(cat)
+        net = torch.nn.functional.relu(net)
+        
+        net = self.linear_2(net)
+        net = torch.nn.functional.relu(net)
+        
+        prediction = self.linear_3(net)
+
+        sorted_index = torch.argsort(prediction, dim=0, descending=True)
+
+        if top_k:
+            sorted_index = sorted_index[:top_k].squeeze()
+
+        return sorted_index
