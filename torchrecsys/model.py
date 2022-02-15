@@ -11,7 +11,9 @@ from torchrecsys.helper.cuda import gpu, cpu
 from torchrecsys.helper.loss import hinge_loss
 from torchrecsys.helper.evaluate import auc_score
 from torchrecsys.helper.negative_sampling import get_negative_batch
+from torchrecsys.evaluate.metrics import Metrics
 import random
+import pandas as pd
 
 
 class TorchRecSys(torch.nn.Module):
@@ -162,11 +164,14 @@ class TorchRecSys(torch.nn.Module):
                 loss_value = self.backward(positive, negative, optimizer)
 
             print(f'|--- Training Loss: {loss_value}')
+            print(f'|--- Training AUC: {auc_score(positive, negative)}')
 
 
     def evaluate(self, dataloader):
 
         self.net = self.net.eval()
+
+        metrics = Metrics()
         
         all_indices = range(len(dataloader.test['user_id']))
         random_indices = random.sample(all_indices, min(50_000, len(all_indices))) ### takes random 50k samples
@@ -176,9 +181,36 @@ class TorchRecSys(torch.nn.Module):
             testing.update({key: gpu(values[random_indices], self.use_cuda)})
 
         positive_test, negative_test = self.forward(net=self.net, batch=testing)
+
+        ### Test Loss
         loss_value_test = hinge_loss(positive_test, negative_test)
 
         print(f'|--- Testing Loss: {loss_value_test}')
+
+        ### AUC SCORE
+        auc_score = metrics.auc_score(positive_test, negative_test)
+
+        print(f'|--- Testing AUC: {auc_score}')
+
+        ### HIT RATE
+        testing_dictionary = (pd.DataFrame({'user_id': dataloader.test['user_id'][random_indices],
+                                            'item_id': dataloader.test['pos_item_id'][random_indices]})
+                              .groupby('user_id')['item_id']
+                              .apply(list)
+                              .to_dict())
+
+        hit_rates = []
+
+        for user, items in testing_dictionary.items():
+
+            y_pred = self.net.predict(user_id=user, top_k=10)
+            y_hat = torch.tensor(items)
+
+            hit_rate = metrics.hit_rate(y_hat=y_hat, y_pred=y_pred)
+
+            hit_rates.append(hit_rate)
+
+        print(f'|--- Testing Hit Rate: {sum(hit_rates)/len(testing_dictionary.keys())}')
 
     
     def predict(self, user_id, top_k):
