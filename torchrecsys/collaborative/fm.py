@@ -94,3 +94,37 @@ class FM(torch.nn.Module):
         net = torch.sigmoid(linear + pairwise)
         
         return net
+
+
+    def predict(self, user_id, top_k=None):
+
+        """
+        It returns sorted item indexes for a given user.
+        """
+        
+        # LINEAR
+        user_linear = self.linear_user(torch.tensor(user_id)).repeat(self.n_items, 1) 
+        item_linear = self.linear_item.weight.data
+        
+        linear = torch.cat([user_linear, item_linear], dim=1).sum(1)
+
+        # EMBEDDING
+        user_embedding = self.user(torch.tensor(user_id)).repeat(self.n_items, 1).reshape(self.n_items, 1, self.n_factors) 
+        item_embedding = self.item.weight.data.reshape(self.n_items, 1, self.n_factors) 
+
+        embedding = torch.cat([user_embedding, item_embedding], dim=1)
+
+        power_of_sum = embedding.sum(dim=1).pow(2)
+        sum_of_power = embedding.pow(2).sum(dim=1)
+
+        pairwise = (power_of_sum - sum_of_power).sum(1) * 0.5
+
+        ### COMBINE
+        prediction = torch.sigmoid(linear + pairwise)
+
+        sorted_index = torch.argsort(prediction, dim=0, descending=True)
+
+        if top_k:
+            sorted_index = sorted_index[:top_k].squeeze()
+
+        return sorted_index
