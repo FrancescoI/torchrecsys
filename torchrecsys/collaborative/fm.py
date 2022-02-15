@@ -44,8 +44,8 @@ class FM(torch.nn.Module):
         self.user = gpu(ScaledEmbedding(self.n_users, self.n_factors), self.use_cuda)
         self.item = gpu(ScaledEmbedding(self.n_items, self.n_factors), self.use_cuda)
                 
-        self.w0 = gpu(torch.nn.Parameter(torch.zeros(1)), self.use_cuda)
-        self.bias = gpu(ScaledEmbedding(self.n_input, 1), self.use_cuda)
+        self.linear_user = gpu(ScaledEmbedding(self.n_users, 1), self.use_cuda)
+        self.linear_item = gpu(ScaledEmbedding(self.n_items, 1), self.use_cuda)
 
 
     def forward(self, batch, user_key, item_key, metadata_key=None):
@@ -84,12 +84,13 @@ class FM(torch.nn.Module):
         sum_of_power = embedding.pow(2).sum(dim=1)
 
         pairwise = (power_of_sum - sum_of_power).sum(1) * 0.5
-        
-        bias_u = self.bias(user)
-        bias_i = self.bias(item)
 
-        bias = (bias_u + bias_i).sum(1)
+        ### Linear
+        user_linear = self.linear_user(user).reshape(user.shape[0], 1, 1)
+        item_linear = self.linear_item(item).reshape(item.shape[0], 1, 1)
 
-        net = torch.sigmoid(self.w0 + bias + pairwise)
+        linear = torch.cat([user_linear, item_linear], dim=1).sum(1).reshape(user.shape[0],)
+
+        net = torch.sigmoid(linear + pairwise)
         
         return net
