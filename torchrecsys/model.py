@@ -167,54 +167,70 @@ class TorchRecSys(torch.nn.Module):
             print(f'|--- Training AUC: {auc_score(positive, negative)}')
 
 
-    def evaluate(self, dataloader):
+    def evaluate(self, metrics=['loss', 'auc']):
 
         self.net = self.net.eval()
 
-        metrics = Metrics()
+        measures = Metrics()
         
-        all_indices = range(len(dataloader.test['user_id']))
+        all_indices = range(len(self.dataloader.test['user_id']))
         random_indices = random.sample(all_indices, min(50_000, len(all_indices))) ### takes random 50k samples
         
         testing = {}
-        for key, values in dataloader.test.items():
+        for key, values in self.dataloader.test.items():
             testing.update({key: gpu(values[random_indices], self.use_cuda)})
 
         positive_test, negative_test = self.forward(net=self.net, batch=testing)
 
-        ### Test Loss
-        loss_value_test = hinge_loss(positive_test, negative_test)
+        if 'loss' in metrics: 
+            loss_value_test = hinge_loss(positive_test, negative_test)
+            print(f'|--- Testing Loss: {loss_value_test}')
 
-        print(f'|--- Testing Loss: {loss_value_test}')
+        if 'auc' in metrics:
+            auc_score = measures.auc_score(positive_test, negative_test)
+            print(f'|--- Testing AUC: {auc_score}')
 
-        ### AUC SCORE
-        auc_score = metrics.auc_score(positive_test, negative_test)
+        if 'hit_rate' in metrics:
+            testing_dictionary = (pd.DataFrame({'user_id': self.dataloader.test['user_id'][random_indices],
+                                                'item_id': self.dataloader.test['pos_item_id'][random_indices]})
+                                .groupby('user_id')['item_id']
+                                .apply(list)
+                                .to_dict())
 
-        print(f'|--- Testing AUC: {auc_score}')
+            hit_rates = []
 
-        ### HIT RATE
-        testing_dictionary = (pd.DataFrame({'user_id': dataloader.test['user_id'][random_indices],
-                                            'item_id': dataloader.test['pos_item_id'][random_indices]})
-                              .groupby('user_id')['item_id']
-                              .apply(list)
-                              .to_dict())
+            user_ids = list(testing_dictionary.keys())
 
-        hit_rates = []
+            y_pred = self.net.predict(user_ids=user_ids, top_k=10)
+            
+            ### TO WRAP IN A FUNCTION
+            y_hat_list = list(testing_dictionary.values())
 
-        for user, items in testing_dictionary.items():
+            max_row_length = 1
+            for row in y_hat_list:
+                if len(row) > max_row_length:
+                    max_row_length = len(row)
 
-            y_pred = self.net.predict(user_id=user, top_k=10)
-            y_hat = torch.tensor(items)
+            y_hat_balanced_list = []
+            for row in y_hat_list:
+                if len(row) < max_row_length:
+                    to_pad = max_row_length - len(row)
+                    padding = row + [-1] * to_pad
+                    y_hat_balanced_list.append(padding)
+                else:
+                    y_hat_balanced_list.append(row)
 
-            hit_rate = metrics.hit_rate(y_hat=y_hat, y_pred=y_pred)
+            y_hat = torch.from_numpy(np.array(y_hat_balanced_list))
 
-            hit_rates.append(hit_rate)
+            ###
 
-        print(f'|--- Testing Hit Rate: {sum(hit_rates)/len(testing_dictionary.keys())}')
+            hit_rates = measures.hit_rate(y_hat=y_hat, y_pred=y_pred)
+
+            print(f'|--- Testing Hit Rate: {hit_rates}')
 
     
-    def predict(self, user_id, top_k):
+    def predict(self, user_ids, top_k):
         
         self.net = self.net.eval()
 
-        return self.net.predict(user_id, top_k)
+        return self.net.predict(user_ids, top_k)

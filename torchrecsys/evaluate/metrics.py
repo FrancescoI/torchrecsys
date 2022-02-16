@@ -6,9 +6,14 @@ class Metrics:
         """
         Given a prediction and a target, it returns the hit rate.
         """
-        hit_rate = 1 if torch.sum(torch.isin(y_pred, y_hat)) >= 1 else 0
 
-        return hit_rate
+        hit_rates = 0
+
+        for y_h, y_p in zip(y_hat, y_pred):
+            hit_rate = 1 if torch.isin(y_p, y_h).sum() >= 1 else 0
+            hit_rates += hit_rate
+            
+        return hit_rates / y_pred.shape[0]
 
     
     def auc_score(self, positive, negative):
