@@ -54,7 +54,7 @@ class TorchRecSys(torch.nn.Module):
 
         self.n_users = dataloader.num_users
         self.n_items = dataloader.num_items      
-        self.n_metadata = len(dataloader.metadata_id)
+        self.metadata_size = dataloader.metadata_size
 
         self.n_factors = n_factors
         
@@ -82,7 +82,7 @@ class TorchRecSys(torch.nn.Module):
 
           self.net = Linear(n_users=self.n_users, 
                             n_items=self.n_items, 
-                            n_metadata=self.n_metadata, 
+                            n_metadata=self.metadata_size, 
                             n_factors=self.n_factors, 
                             use_metadata=self.use_metadata, 
                             use_cuda=self.use_cuda)
@@ -93,7 +93,7 @@ class TorchRecSys(torch.nn.Module):
 
             self.net = MLP(n_users=self.n_users, 
                            n_items=self.n_items, 
-                           n_metadata=self.n_metadata, 
+                           n_metadata=self.metadata_size, 
                            n_factors=self.n_factors, 
                            use_metadata=self.use_metadata, 
                            use_cuda=self.use_cuda)
@@ -101,7 +101,7 @@ class TorchRecSys(torch.nn.Module):
         elif net_type == 'fm':
             self.net = FM(n_users=self.n_users, 
                           n_items=self.n_items, 
-                          n_metadata=self.n_metadata, 
+                          n_metadata=self.metadata_size, 
                           n_factors=self.n_factors, 
                           use_metadata=self.use_metadata, 
                           use_cuda=self.use_cuda)

@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from cmath import exp
+from typing import List
 import torch
 from torch.autograd import Variable
 from torchrecsys.embeddings.init_embeddings import ScaledEmbedding, ZeroEmbedding
@@ -23,7 +25,14 @@ class Linear(torch.nn.Module):
     use_cuda: bool -> whether to use cuda or not
     """
     
-    def __init__(self, n_users, n_items, n_metadata, n_factors, use_metadata=True, use_cuda=False):
+    def __init__(self, 
+                 n_users, 
+                 n_items, 
+                 n_metadata, 
+                 n_factors, 
+                 use_metadata=True, 
+                 use_cuda=False):
+        
         super(Linear, self).__init__()
 
         self.n_users = n_users
@@ -36,9 +45,9 @@ class Linear(torch.nn.Module):
         self.use_cuda = use_cuda
         
         if use_metadata:
-            self.n_metadata = self.n_metadata
-            self.metadata = gpu(ScaledEmbedding(self.n_metadata, n_factors), self.use_cuda)
-
+            self.metadata = torch.nn.ModuleList(
+                                gpu([ScaledEmbedding(size, self.n_factors) for _ , size in self.n_metadata.items()], 
+                                self.use_cuda))
         
         self.user = gpu(ScaledEmbedding(self.n_users, self.n_factors), self.use_cuda)
         self.item = gpu(ScaledEmbedding(self.n_items, self.n_factors), self.use_cuda)
@@ -57,49 +66,46 @@ class Linear(torch.nn.Module):
         user = batch[user_key]
         item = batch[item_key]
         
-        ####
-        if self.use_metadata:
-            metadata = batch[metadata_key]
-            metadata_embedding = self.metadata(metadata)
-        ###
-
         user_bias = self.user_bias(user)
         item_bias = self.item_bias(item)
         
         user_embedding = self.user(user)
         item_embedding = self.item(item)
-        
-        ###
-        if self.use_metadata:
-        
-            ### Reshaping in order to match metadata tensor
-            item_embedding = item_embedding.reshape(len(batch['item_id'].values), 1, self.n_factors)        
-            item_metadata_embedding = torch.cat([item_embedding, metadata_embedding], axis=1)
 
-            ### sum of latent dimensions
-            item_embedding = item_metadata_embedding.sum(1)
+        #### metadata
+        if self.use_metadata:
+            metadata = batch[metadata_key]
+            
+            for idx, layer in enumerate(self.metadata):
+                item_embedding += layer(metadata[:, idx])
         ###
 
         net = (user_embedding * item_embedding).sum(1).view(-1,1) + user_bias + item_bias
         
         return net
 
-    def predict(self, user_id, top_k=None):
+    def predict(self, user_ids: List, top_k: int =None):
 
         """
-        It returns sorted item indexes for a given user.
+        It returns sorted item indexes for a given user or a list of users.
         """
 
-        user_emb = self.user(torch.tensor(user_id)).repeat(self.n_items, 1) 
-        item_emb = self.item.weight.data
-        item_bias = self.item_bias.weight.data
+        num_users = len(user_ids)
 
-        prediction = (user_emb * item_emb).sum(1).view(-1,1)
+        user_emb = self.user(torch.tensor(user_ids)).reshape(num_users, 1, self.n_factors).repeat(1, self.n_items, 1) 
+        item_emb = self.item.weight.data.reshape(1, self.n_items, self.n_factors)
+        item_bias = self.item_bias.weight.data.reshape(1, self.n_items).repeat(num_users, 1)
+
+        ### to implement metadata ###
+        if self.use_metadata:
+            raise Exception("Not implemented yet")
+
+        prediction = (user_emb * item_emb).sum(2)
         prediction += item_bias
 
-        sorted_index = torch.argsort(prediction, dim=0, descending=True)
+        sorted_index = torch.argsort(prediction, dim=1, descending=True)
 
         if top_k:
-            sorted_index = sorted_index[:top_k].squeeze()
+            sorted_index = sorted_index[:, :top_k].squeeze()
 
         return sorted_index

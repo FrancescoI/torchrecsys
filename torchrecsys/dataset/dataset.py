@@ -37,6 +37,16 @@ class DataFarm():
             self.dataset = self._add_positive_metadata(self.dataset)
             self.dataset = self._add_negative_metadata(self.dataset)
             self.negative_metadata_id = self._get_negative_metadata_column_names()
+            self.metadata_size = self._get_metadata_size(self.metadata_id)
+
+    def _get_metadata_size(self, metadata_id_col):
+        
+        metadata_size = {}
+
+        for col in metadata_id_col:
+            metadata_size.update({col: len(self.dataset[col].unique())})
+
+        return metadata_size
   
     def _get_negative_items(self, dataset):
 
@@ -158,13 +168,13 @@ class CustomDataLoader(DataFarm):
         if self.use_metadata:
 
             train.update({
-                           'pos_metadata_id': torch.Tensor(df_train['pos_metadata_id']),
-                           'neg_metadata_id': torch.Tensor(df_train['neg_metadata_id']),
+                           'pos_metadata_id': torch.Tensor(df_train['pos_metadata_id']).long(),
+                           'neg_metadata_id': torch.Tensor(df_train['neg_metadata_id']).long(),
                           }
                         )
             test.update({
-                           'pos_metadata_id': torch.Tensor(df_test['pos_metadata_id']),
-                           'neg_metadata_id': torch.Tensor(df_test['neg_metadata_id'])
+                           'pos_metadata_id': torch.Tensor(df_test['pos_metadata_id']).long(),
+                           'neg_metadata_id': torch.Tensor(df_test['neg_metadata_id']).long()
                           }
                         )
 
