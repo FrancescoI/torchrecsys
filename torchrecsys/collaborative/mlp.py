@@ -37,8 +37,8 @@ class MLP(torch.nn.Module):
 
         if use_metadata:
             self.metadata = torch.nn.ModuleList(
-                                gpu([ScaledEmbedding(size, self.n_factors) for _ , size in self.n_metadata.items()], 
-                                self.use_cuda))
+                                [gpu(ScaledEmbedding(size, self.n_factors), self.use_cuda) 
+                                 for _ , size in self.n_metadata.items()])
 
 
     def forward(self, batch, user_key, item_key, metadata_key=None):

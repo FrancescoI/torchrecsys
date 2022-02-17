@@ -46,8 +46,8 @@ class Linear(torch.nn.Module):
         
         if use_metadata:
             self.metadata = torch.nn.ModuleList(
-                                gpu([ScaledEmbedding(size, self.n_factors) for _ , size in self.n_metadata.items()], 
-                                self.use_cuda))
+                                [gpu(ScaledEmbedding(size, self.n_factors), self.use_cuda) 
+                                 for _ , size in self.n_metadata.items()])
         
         self.user = gpu(ScaledEmbedding(self.n_users, self.n_factors), self.use_cuda)
         self.item = gpu(ScaledEmbedding(self.n_items, self.n_factors), self.use_cuda)

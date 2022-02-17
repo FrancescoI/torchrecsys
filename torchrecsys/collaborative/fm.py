@@ -44,12 +44,12 @@ class FM(torch.nn.Module):
 
         if use_metadata:
             self.metadata = torch.nn.ModuleList(
-                                gpu([ScaledEmbedding(size, self.n_factors) for _ , size in self.n_metadata.items()], 
-                                self.use_cuda))
+                                [gpu(ScaledEmbedding(size, self.n_factors), self.use_cuda) 
+                                 for _ , size in self.n_metadata.items()])
 
             self.linear_metadata = torch.nn.ModuleList(
-                                        gpu([ScaledEmbedding(size, 1) for _ , size in self.n_metadata.items()], 
-                                        self.use_cuda))
+                                [gpu(ScaledEmbedding(size, 1), self.use_cuda) 
+                                 for _ , size in self.n_metadata.items()])
 
 
 
