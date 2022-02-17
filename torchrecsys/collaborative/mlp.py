@@ -22,11 +22,11 @@ class MLP(torch.nn.Module):
         self.use_metadata = use_metadata
         self.use_cuda = use_cuda
         
-        if use_metadata:
-            self.n_metadata = self.n_metadata
-            self.metadata = gpu(ScaledEmbedding(self.n_metadata, n_factors), self.use_cuda)
-
         self.input_shape = self.n_factors * 2
+
+        if use_metadata:
+            n_metadata = len(self.n_metadata.keys())
+            self.input_shape += (self.n_factors * n_metadata)
 
         self.user = gpu(ScaledEmbedding(self.n_users, self.n_factors), self.use_cuda)
         self.item = gpu(ScaledEmbedding(self.n_items, self.n_factors), self.use_cuda)
@@ -34,6 +34,11 @@ class MLP(torch.nn.Module):
         self.linear_1 = gpu(torch.nn.Linear(self.input_shape, 1_024), self.use_cuda)
         self.linear_2 = gpu(torch.nn.Linear(1_024, 128), self.use_cuda)
         self.linear_3 = gpu(torch.nn.Linear(128, 1), self.use_cuda)
+
+        if use_metadata:
+            self.metadata = torch.nn.ModuleList(
+                                gpu([ScaledEmbedding(size, self.n_factors) for _ , size in self.n_metadata.items()], 
+                                self.use_cuda))
 
 
     def forward(self, batch, user_key, item_key, metadata_key=None):
@@ -44,15 +49,14 @@ class MLP(torch.nn.Module):
         user_embedding = self.user(user)
         item_embedding = self.item(item)
         
+        #### metadata
         if self.use_metadata:
             metadata = batch[metadata_key]
-            metadata_embedding = self.metadata(metadata)
-                
-            ### Reshaping in order to match metadata tensor
-            item_embedding = item_embedding.reshape(len(batch['item_id'].values), 1, self.n_factors)
-
-            item_metadata_embedding = torch.cat([item_emb, metadata_embedding], axis=1)
-            item_embedding = item_metadata_embedding.sum(1)
+            
+            for idx, layer in enumerate(self.metadata):
+                single_layer = layer(metadata[:, idx])
+                item_embedding = torch.cat([item_embedding, single_layer], axis=1)
+        ###
 
         cat = torch.cat([user_embedding, item_embedding], axis=1)
 
