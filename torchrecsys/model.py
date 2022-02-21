@@ -195,16 +195,14 @@ class TorchRecSys(torch.nn.Module):
             print(f'|--- Testing AUC: {auc_score}')
 
         if 'hit_rate' in metrics:
+
             testing_dictionary = (pd.DataFrame({'user_id': self.dataloader.test['user_id'][random_indices],
                                                 'item_id': self.dataloader.test['pos_item_id'][random_indices]})
                                 .groupby('user_id')['item_id']
                                 .apply(list)
                                 .to_dict())
 
-            hit_rates = []
-
             user_ids = list(testing_dictionary.keys())
-
             y_pred = self.net.predict(user_ids=user_ids, top_k=10)
             
             ### TO WRAP IN A FUNCTION

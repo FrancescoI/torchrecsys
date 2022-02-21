@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import torch
-from torch.autograd import Variable
-from torchrecsys.embeddings.init_embeddings import ScaledEmbedding, ZeroEmbedding
-import pandas as pd
-import numpy as np
+from torchrecsys.embeddings.init_embeddings import ScaledEmbedding
 
 
 class MLP(torch.nn.Module):

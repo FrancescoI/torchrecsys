@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from cmath import exp
 from typing import List
 import torch
-from torch.autograd import Variable
 from torchrecsys.embeddings.init_embeddings import ScaledEmbedding, ZeroEmbedding
-import pandas as pd
-import numpy as np
 
 class Linear(torch.nn.Module):
 
