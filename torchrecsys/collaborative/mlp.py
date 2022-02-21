@@ -3,7 +3,6 @@
 import torch
 from torch.autograd import Variable
 from torchrecsys.embeddings.init_embeddings import ScaledEmbedding, ZeroEmbedding
-from torchrecsys.helper.cuda import gpu
 import pandas as pd
 import numpy as np
 
@@ -28,17 +27,16 @@ class MLP(torch.nn.Module):
             n_metadata = len(self.n_metadata.keys())
             self.input_shape += (self.n_factors * n_metadata)
 
-        self.user = gpu(ScaledEmbedding(self.n_users, self.n_factors), self.use_cuda)
-        self.item = gpu(ScaledEmbedding(self.n_items, self.n_factors), self.use_cuda)
+        self.user = ScaledEmbedding(self.n_users, self.n_factors)
+        self.item = ScaledEmbedding(self.n_items, self.n_factors)
         
-        self.linear_1 = gpu(torch.nn.Linear(self.input_shape, 1_024), self.use_cuda)
-        self.linear_2 = gpu(torch.nn.Linear(1_024, 128), self.use_cuda)
-        self.linear_3 = gpu(torch.nn.Linear(128, 1), self.use_cuda)
+        self.linear_1 = torch.nn.Linear(self.input_shape, 1_024)
+        self.linear_2 = torch.nn.Linear(1_024, 128)
+        self.linear_3 = torch.nn.Linear(128, 1)
 
         if use_metadata:
             self.metadata = torch.nn.ModuleList(
-                                [gpu(ScaledEmbedding(size, self.n_factors), self.use_cuda) 
-                                 for _ , size in self.n_metadata.items()])
+                                [ScaledEmbedding(size, self.n_factors) for _ , size in self.n_metadata.items()])
 
 
     def forward(self, batch, user_key, item_key, metadata_key=None):

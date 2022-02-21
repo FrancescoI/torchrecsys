@@ -5,7 +5,6 @@ from typing import List
 import torch
 from torch.autograd import Variable
 from torchrecsys.embeddings.init_embeddings import ScaledEmbedding, ZeroEmbedding
-from torchrecsys.helper.cuda import gpu
 import pandas as pd
 import numpy as np
 
@@ -46,14 +45,13 @@ class Linear(torch.nn.Module):
         
         if use_metadata:
             self.metadata = torch.nn.ModuleList(
-                                [gpu(ScaledEmbedding(size, self.n_factors), self.use_cuda) 
-                                 for _ , size in self.n_metadata.items()])
+                                [ScaledEmbedding(size, self.n_factors) for _ , size in self.n_metadata.items()])
         
-        self.user = gpu(ScaledEmbedding(self.n_users, self.n_factors), self.use_cuda)
-        self.item = gpu(ScaledEmbedding(self.n_items, self.n_factors), self.use_cuda)
+        self.user = ScaledEmbedding(self.n_users, self.n_factors)
+        self.item = ScaledEmbedding(self.n_items, self.n_factors)
         
-        self.user_bias = gpu(ZeroEmbedding(self.n_users, 1), self.use_cuda)
-        self.item_bias = gpu(ZeroEmbedding(self.n_items, 1), self.use_cuda)
+        self.user_bias = ZeroEmbedding(self.n_users, 1)
+        self.item_bias = ZeroEmbedding(self.n_items, 1)
     
     
     def forward(self, batch, user_key, item_key, metadata_key=None):

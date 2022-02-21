@@ -2,7 +2,6 @@ from multiprocessing.sharedctypes import Value
 import torch
 from torch.autograd import Variable
 from torchrecsys.embeddings.init_embeddings import ScaledEmbedding, ZeroEmbedding
-from torchrecsys.helper.cuda import gpu
 import pandas as pd
 import numpy as np
 
@@ -36,20 +35,18 @@ class FM(torch.nn.Module):
 
         self.n_input = self.n_users + self.n_items
         
-        self.user = gpu(ScaledEmbedding(self.n_users, self.n_factors), self.use_cuda)
-        self.item = gpu(ScaledEmbedding(self.n_items, self.n_factors), self.use_cuda)
+        self.user = ScaledEmbedding(self.n_users, self.n_factors)
+        self.item = ScaledEmbedding(self.n_items, self.n_factors)
                 
-        self.linear_user = gpu(ScaledEmbedding(self.n_users, 1), self.use_cuda)
-        self.linear_item = gpu(ScaledEmbedding(self.n_items, 1), self.use_cuda)
+        self.linear_user = ScaledEmbedding(self.n_users, 1)
+        self.linear_item = ScaledEmbedding(self.n_items, 1)
 
         if use_metadata:
             self.metadata = torch.nn.ModuleList(
-                                [gpu(ScaledEmbedding(size, self.n_factors), self.use_cuda) 
-                                 for _ , size in self.n_metadata.items()])
+                                [ScaledEmbedding(size, self.n_factors) for _ , size in self.n_metadata.items()])
 
             self.linear_metadata = torch.nn.ModuleList(
-                                [gpu(ScaledEmbedding(size, 1), self.use_cuda) 
-                                 for _ , size in self.n_metadata.items()])
+                                [ScaledEmbedding(size, 1) for _ , size in self.n_metadata.items()])
 
 
 

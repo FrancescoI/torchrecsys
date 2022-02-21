@@ -10,7 +10,6 @@ from torchrecsys.collaborative.fm import FM
 from torchrecsys.helper.cuda import gpu, cpu
 from torchrecsys.helper.loss import hinge_loss
 from torchrecsys.helper.evaluate import auc_score
-from torchrecsys.helper.negative_sampling import get_negative_batch
 from torchrecsys.evaluate.metrics import Metrics
 import random
 import pandas as pd
@@ -99,6 +98,9 @@ class TorchRecSys(torch.nn.Module):
                            use_cuda=self.use_cuda)
           
         elif net_type == 'fm':
+
+            print('Factorization Machine')
+
             self.net = FM(n_users=self.n_users, 
                           n_items=self.n_items, 
                           n_metadata=self.metadata_size, 
@@ -111,6 +113,8 @@ class TorchRecSys(torch.nn.Module):
 
         elif net_type == 'lstm':
             NotImplementedError('LSTM not implemented yet')
+
+        self.net = gpu(self.net, self.use_cuda)
 
 
     def forward(self, net, batch):
