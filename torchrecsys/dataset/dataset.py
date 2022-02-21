@@ -99,6 +99,21 @@ class DataFarm():
 
         return dataset
 
+    def map_item_metadata(self):
+
+        grouping_col = [self.item_id] + self.metadata_id
+
+        data = self.dataset.groupby(grouping_col, as_index=False).agg({self.user_id: 'count'}).sort_values('product_code')
+
+        dummies = None
+        for metadata in grouping_col:
+            dummy = pd.get_dummies(data[metadata])
+            dummies = pd.concat([dummies, dummy], axis=1) if dummies is not None else dummy
+
+        mapping = dummies.values
+
+        return mapping
+
 
 class CustomDataset(Dataset, DataFarm):
 

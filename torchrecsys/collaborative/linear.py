@@ -3,6 +3,7 @@
 from typing import List
 import torch
 from torchrecsys.embeddings.init_embeddings import ScaledEmbedding, ZeroEmbedding
+from torchrecsys.helper.cuda import gpu
 
 class Linear(torch.nn.Module):
 
@@ -20,7 +21,8 @@ class Linear(torch.nn.Module):
     use_cuda: bool -> whether to use cuda or not
     """
     
-    def __init__(self, 
+    def __init__(self,
+                 dataloader, 
                  n_users, 
                  n_items, 
                  n_metadata, 
@@ -29,6 +31,8 @@ class Linear(torch.nn.Module):
                  use_cuda=False):
         
         super(Linear, self).__init__()
+
+        self.dataloader = dataloader
 
         self.n_users = n_users
         self.n_items = n_items
@@ -78,6 +82,7 @@ class Linear(torch.nn.Module):
         
         return net
 
+
     def predict(self, user_ids: List, top_k: int =None):
 
         """
@@ -86,13 +91,24 @@ class Linear(torch.nn.Module):
 
         num_users = len(user_ids)
 
-        user_emb = self.user(torch.tensor(user_ids)).reshape(num_users, 1, self.n_factors).repeat(1, self.n_items, 1) 
+        user_emb = self.user(torch.tensor(user_ids)).reshape(num_users, 1, self.n_factors).repeat(1, self.n_items, 1)
+        item_emb = self.item.weight 
+
+        if self.use_metadata:
+            mapping = gpu(torch.from_numpy(self.dataloader.map_item_metadata()), self.use_cuda)
+            
+            for idx, layer in enumerate(self.metadata):
+                if idx == 0:
+                    metadata = layer.weight.data
+                else:
+                    metadata = torch.cat([metadata, layer.weight.data], dim=0)
+
+            item_emb_concat = torch.cat([item_emb, metadata], dim=0)
+
+            item_emb = torch.matmul(mapping.long(), item_emb_concat.long())
+
         item_emb = self.item.weight.data.reshape(1, self.n_items, self.n_factors)
         item_bias = self.item_bias.weight.data.reshape(1, self.n_items).repeat(num_users, 1)
-
-        ### to implement metadata ###
-        if self.use_metadata:
-            raise Exception("Not implemented yet")
 
         prediction = (user_emb * item_emb).sum(2)
         prediction += item_bias

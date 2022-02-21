@@ -79,7 +79,8 @@ class TorchRecSys(torch.nn.Module):
 
           print('Linear Collaborative Filtering')
 
-          self.net = Linear(n_users=self.n_users, 
+          self.net = Linear(dataloader=self.dataloader,
+                            n_users=self.n_users, 
                             n_items=self.n_items, 
                             n_metadata=self.metadata_size, 
                             n_factors=self.n_factors, 
