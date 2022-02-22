@@ -174,14 +174,14 @@ class TorchRecSys(torch.nn.Module):
             print(f'|--- Training AUC: {auc_score(positive, negative)}')
 
 
-    def evaluate(self, metrics=['loss', 'auc']):
+    def evaluate(self, sample_size=10_000, metrics=['loss', 'auc']):
 
         self.net = self.net.eval()
 
         measures = Metrics()
         
         all_indices = range(len(self.dataloader.test['user_id']))
-        random_indices = random.sample(all_indices, min(50_000, len(all_indices))) ### takes random 50k samples
+        random_indices = random.sample(all_indices, min(sample_size, len(all_indices))) ### takes random 50k samples
         
         testing = {}
         for key, values in self.dataloader.test.items():
