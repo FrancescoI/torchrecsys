@@ -103,7 +103,8 @@ class TorchRecSys(torch.nn.Module):
 
             print('Factorization Machine')
 
-            self.net = FM(n_users=self.n_users, 
+            self.net = FM(dataloader=self.dataloader,
+                          n_users=self.n_users, 
                           n_items=self.n_items, 
                           n_metadata=self.metadata_size, 
                           n_factors=self.n_factors, 
