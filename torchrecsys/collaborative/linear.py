@@ -105,7 +105,7 @@ class Linear(torch.nn.Module):
 
             item_emb_concat = torch.cat([item_emb, metadata], dim=0)
 
-            item_emb = torch.matmul(mapping.long(), item_emb_concat.long())
+            item_emb = torch.matmul(mapping.float(), item_emb_concat)
 
         item_emb = self.item.weight.data.reshape(1, self.n_items, self.n_factors)
         item_bias = self.item_bias.weight.data.reshape(1, self.n_items).repeat(num_users, 1)

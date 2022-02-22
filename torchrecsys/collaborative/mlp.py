@@ -2,12 +2,22 @@
 
 import torch
 from torchrecsys.embeddings.init_embeddings import ScaledEmbedding
-
+from torchrecsys.helper.cuda import gpu
 
 class MLP(torch.nn.Module):
     
-    def __init__(self, n_users, n_items, n_metadata, n_factors, use_metadata=True, use_cuda=False):
+    def __init__(self, 
+                 dataloader,
+                 n_users, 
+                 n_items, 
+                 n_metadata, 
+                 n_factors, 
+                 use_metadata=True, 
+                 use_cuda=False):
+                 
         super(MLP, self).__init__()
+
+        self.dataloader = dataloader
 
         self.n_users = n_users
         self.n_items = n_items
@@ -21,8 +31,8 @@ class MLP(torch.nn.Module):
         self.input_shape = self.n_factors * 2
 
         if use_metadata:
-            n_metadata = len(self.n_metadata.keys())
-            self.input_shape += (self.n_factors * n_metadata)
+            self.n_distinct_metadata = len(self.n_metadata.keys())
+            self.input_shape += (self.n_factors * self.n_distinct_metadata)
 
         self.user = ScaledEmbedding(self.n_users, self.n_factors)
         self.item = ScaledEmbedding(self.n_items, self.n_factors)
@@ -34,7 +44,6 @@ class MLP(torch.nn.Module):
         if use_metadata:
             self.metadata = torch.nn.ModuleList(
                                 [ScaledEmbedding(size, self.n_factors) for _ , size in self.n_metadata.items()])
-
 
     def forward(self, batch, user_key, item_key, metadata_key=None):
 
@@ -65,16 +74,37 @@ class MLP(torch.nn.Module):
         
         return net
 
-    def predict(self, user_id, top_k=None):
+    def predict(self, user_ids, top_k=None):
 
         """
         It returns sorted item indexes for a given user.
         """
 
-        user_emb = self.user(torch.tensor(user_id)).repeat(self.n_items, 1) 
-        item_emb = self.item.weight.data
+        num_users = len(user_ids)
 
-        cat = torch.cat([user_emb, item_emb], axis=1)
+        user_embedding = self.user(torch.tensor(user_ids)).reshape(num_users, 1, self.n_factors).repeat(1, self.n_items, 1)
+        item_embedding = self.item.weight.data
+
+        if self.use_metadata:
+            mapping = gpu(torch.from_numpy(self.dataloader.map_item_metadata()), self.use_cuda)
+            
+            for idx, layer in enumerate(self.metadata):
+                single_layer = layer.weight.data
+                item_meta_embedding = torch.cat([item_meta_embedding, single_layer], axis=0) if idx > 0 else single_layer
+
+            item_meta_embedding = torch.cat([item_meta_embedding, item_embedding], axis=0)
+
+            mapping = mapping.reshape(mapping.shape[0], 1, mapping.shape[1]) # (n_items X (n_items + n_metadata))
+            item_meta_embedding = item_meta_embedding.transpose(1, 0).reshape(1, self.n_factors, mapping.shape[2]) # (1 X n_factors X (n_items + n_metadata))
+
+            cat = mapping * item_meta_embedding
+            item_embedding = cat[cat != 0].reshape(self.n_items, self.n_factors, 1+self.n_distinct_metadata)
+            item_embedding = item_embedding.transpose(2,1)
+            item_embedding = item_embedding.reshape(self.n_items, self.n_factors * (1+self.n_distinct_metadata))
+        ###
+
+        item_embedding = item_embedding.reshape(1, self.n_items, self.n_factors * (1+self.n_distinct_metadata)).repeat(num_users, 1, 1)
+        cat = torch.cat([user_embedding, item_embedding], axis=2)
 
         net = self.linear_1(cat)
         net = torch.nn.functional.relu(net)
@@ -82,11 +112,11 @@ class MLP(torch.nn.Module):
         net = self.linear_2(net)
         net = torch.nn.functional.relu(net)
         
-        prediction = self.linear_3(net)
+        net = self.linear_3(net)
 
-        sorted_index = torch.argsort(prediction, dim=0, descending=True)
+        sorted_index = torch.argsort(net, dim=0, descending=True).squeeze()
 
         if top_k:
-            sorted_index = sorted_index[:top_k].squeeze()
+            sorted_index = sorted_index[:, :top_k].squeeze()
 
         return sorted_index
