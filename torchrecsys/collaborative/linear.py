@@ -90,8 +90,9 @@ class Linear(torch.nn.Module):
         """
 
         num_users = len(user_ids)
+        user_ids = gpu(torch.tensor(user_ids), self.use_cuda)
 
-        user_emb = self.user(torch.tensor(user_ids)).reshape(num_users, 1, self.n_factors).repeat(1, self.n_items, 1)
+        user_emb = self.user(user_ids).reshape(num_users, 1, self.n_factors).repeat(1, self.n_items, 1)
         item_emb = self.item.weight 
 
         if self.use_metadata:

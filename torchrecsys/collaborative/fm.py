@@ -113,7 +113,8 @@ class FM(torch.nn.Module):
         num_users = len(user_ids)
         
         # LINEAR
-        user_linear = self.linear_user(torch.tensor(user_ids)).reshape(num_users, 1, 1)
+        user_ids = gpu(torch.tensor(user_ids), self.use_cuda)
+        user_linear = self.linear_user(user_ids).reshape(num_users, 1, 1)
         user_linear = user_linear.repeat(1, self.n_items, 1)
 
         item_linear = self.linear_item.weight.data
