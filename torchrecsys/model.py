@@ -4,14 +4,11 @@ import torch
 import numpy as np
 from torchrecsys.collaborative.linear import Linear
 from torchrecsys.collaborative.mlp import MLP
-from torchrecsys.collaborative.ease import EASE
-from torchrecsys.collaborative.neu import NeuCF
 from torchrecsys.collaborative.fm import FM
-from torchrecsys.helper.cuda import gpu, cpu
+from torchrecsys.helper.cuda import gpu
 from torchrecsys.helper.loss import hinge_loss
 from torchrecsys.helper.evaluate import auc_score
 from torchrecsys.evaluate.metrics import Metrics
-import random
 import pandas as pd
 
 
@@ -66,11 +63,6 @@ class TorchRecSys(torch.nn.Module):
 
         self._init_net(net_type=net_type)
 
-        self.training = {}
-        for key, values in dataloader.train.items():
-            self.training.update({key: gpu(values, self.use_cuda)})
-
-    
     def _init_net(self, net_type='linear'):
 
         assert net_type in ('linear', 'mlp', 'neucf', 'fm', 'lstm'), 'Net type must be one of "linear", "mlp", "neu", "ease" or "lstm"'
@@ -119,6 +111,8 @@ class TorchRecSys(torch.nn.Module):
 
         self.net = gpu(self.net, self.use_cuda)
 
+        self.train, self.test = self.dataloader.fit()
+
 
     def forward(self, net, batch):
 
@@ -159,83 +153,86 @@ class TorchRecSys(torch.nn.Module):
 
             print(f'Epoch: {epoch+1}')
             
-            for first in range(0, len(self.training['user_id']), batch_size):
+            for batch in self.dataloader.get_batch(self.train, batch_size):
 
-                if self.debug:    
-                    print(f'On total of {first / len(self.training["user_id"]) * 100:.2f}%')
+                batch = gpu(batch, self.use_cuda)
                     
-                batch = {k: v[first:first+batch_size] for k, v in self.training.items()}
-
                 positive, negative = self.forward(net=self.net, batch=batch)
-
                 loss_value = self.backward(positive, negative, optimizer)
 
             print(f'|--- Training Loss: {loss_value}')
             print(f'|--- Training AUC: {auc_score(positive, negative)}')
 
 
-    def evaluate(self, sample_size=10_000, metrics=['loss', 'auc']):
+    def evaluate(self, batch_size=512, metrics=['loss', 'auc']):
 
         self.net = self.net.eval()
 
         measures = Metrics()
-        
-        all_indices = range(len(self.dataloader.test['user_id']))
-        random_indices = random.sample(all_indices, min(sample_size, len(all_indices))) ### takes random 50k samples
-        
-        testing = {}
-        for key, values in self.dataloader.test.items():
-            testing.update({key: gpu(values[random_indices], self.use_cuda)})
 
-        positive_test, negative_test = self.forward(net=self.net, batch=testing)
+        metrics = {'loss': [],
+                   'auc': [],
+                   'hit_rate': []
+                  }
+        loss = []
+        auc = []
+        hit_rate = []
 
-        if 'loss' in metrics: 
-            loss_value_test = hinge_loss(positive_test, negative_test)
-            print(f'|--- Testing Loss: {loss_value_test}')
+        for batch in self.dataloader.get_batch(self.test, batch_size):
 
-        if 'auc' in metrics:
-            auc_score = measures.auc_score(positive_test, negative_test)
-            print(f'|--- Testing AUC: {auc_score}')
-
-        if 'hit_rate' in metrics:
-
-            testing_dictionary = (pd.DataFrame({'user_id': self.dataloader.test['user_id'][random_indices],
-                                                'item_id': self.dataloader.test['pos_item_id'][random_indices]})
-                                .groupby('user_id')['item_id']
-                                .apply(list)
-                                .to_dict())
-
-            user_ids = list(testing_dictionary.keys())
-            y_pred = self.net.predict(user_ids=user_ids, top_k=10)
+            positive_test, negative_test = self.forward(net=self.net, batch=batch)
             
-            ### TO WRAP IN A FUNCTION
-            y_hat_list = list(testing_dictionary.values())
+            if 'auc' in metrics:
+                auc_score = measures.auc_score(positive_test, negative_test)
+                auc.append(auc_score)
+                
+            if 'loss' in metrics: 
+                loss_value_test = hinge_loss(positive_test, negative_test)
+                loss.append(loss_value_test)
 
-            max_row_length = 1
-            for row in y_hat_list:
-                if len(row) > max_row_length:
-                    max_row_length = len(row)
+        metrics.update({'auc': sum(auc) / len(auc),
+                        'loss': sum(loss) / len(loss)})
 
-            y_hat_balanced_list = []
-            for row in y_hat_list:
-                if len(row) < max_row_length:
-                    to_pad = max_row_length - len(row)
-                    padding = row + [-1] * to_pad
-                    y_hat_balanced_list.append(padding)
-                else:
-                    y_hat_balanced_list.append(row)
+        for metric, value in metrics.items():
+            print(f'|--- Testing {metric}: {value}')
 
-            y_hat = torch.from_numpy(np.array(y_hat_balanced_list))
 
-            ###
-
-            hit_rates = measures.hit_rate(y_hat=y_hat, y_pred=y_pred)
-
-            print(f'|--- Testing Hit Rate: {hit_rates}')
-
-    
-    def predict(self, user_ids, top_k):
+    def predict(self, user_id: int, top_k: int = 10):
         
+        """
+        It returns sorted item indexes for a given user or a list of users.
+        """
+
         self.net = self.net.eval()
 
-        return self.net.predict(user_ids, top_k)
+        batch = gpu(self._create_inference_batch(user_id), self.use_cuda)
+
+        score = self.net.forward(batch,
+                                 user_key='user_id',
+                                 item_key='pos_item_id',
+                                 metadata_key='pos_metadata_id')
+
+        sorted_index = torch.argsort(score, dim=0, descending=True)
+
+        if top_k:
+            sorted_index = sorted_index[:top_k]
+
+        return sorted_index
+
+    
+    def _create_inference_batch(self, user_id):
+
+        dataframe = pd.DataFrame({'user_id': [user_id] * self.n_items,
+                                  'item_id': list(range(self.n_items)),
+                                })
+
+        metadata = self.dataloader._get_metadata()
+        metadata.columns = ['item_id'] + self.dataloader.metadata_id
+
+        dataframe = pd.merge(dataframe, metadata, on='item_id', how='inner')
+        dataframe['pos_metadata_id'] = dataframe[self.dataloader.metadata_id].values.tolist()
+
+        return {'user_id': torch.from_numpy(dataframe['user_id'].values),
+                'pos_item_id': torch.from_numpy(dataframe['item_id'].values),
+                'pos_metadata_id': torch.Tensor(dataframe['pos_metadata_id']).long(),
+                }
