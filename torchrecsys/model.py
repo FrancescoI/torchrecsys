@@ -155,9 +155,12 @@ class TorchRecSys(torch.nn.Module):
             
             for batch in self.dataloader.get_batch(self.train, batch_size):
 
-                batch = gpu(batch, self.use_cuda)
+                mini_batch = {}
+
+                for key, values in batch.items():
+                    mini_batch.update({key: gpu(values, self.use_cuda)})
                     
-                positive, negative = self.forward(net=self.net, batch=batch)
+                positive, negative = self.forward(net=self.net, batch=mini_batch)
                 loss_value = self.backward(positive, negative, optimizer)
 
             print(f'|--- Training Loss: {loss_value}')
