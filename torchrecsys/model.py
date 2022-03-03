@@ -183,7 +183,12 @@ class TorchRecSys(torch.nn.Module):
 
         for batch in self.dataloader.get_batch(self.test, batch_size):
 
-            positive_test, negative_test = self.forward(net=self.net, batch=batch)
+            mini_batch = {}
+
+            for key, values in batch.items():
+                mini_batch.update({key: gpu(values, self.use_cuda)})
+
+            positive_test, negative_test = self.forward(net=self.net, batch=mini_batch)
             
             if 'auc' in metrics:
                 auc_score = measures.auc_score(positive_test, negative_test)
