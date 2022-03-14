@@ -6,9 +6,13 @@ import numpy as np
 from torch.utils.data import Dataset
 import torch
 from sklearn.model_selection import train_test_split
+import ast
+import json
 
 
-class DataFarm():
+
+
+class Data:
 
     def __init__(self, 
                  dataset: pd.DataFrame, 
@@ -64,9 +68,9 @@ class DataFarm():
 
         return dataset
 
-    def _get_metadata(self):
+    def _get_metadata(self, dataset):
 
-        metadata = (self.dataset
+        metadata = (dataset
                     .set_index(self.item_id)[self.metadata_id]
                     .reset_index()
                     .drop_duplicates())
@@ -75,7 +79,7 @@ class DataFarm():
                         
     def _add_negative_metadata(self, dataset):
         
-        metadata = self._get_metadata()
+        metadata = self._get_metadata(dataset)
 
         metadata_negative_names = self._get_negative_metadata_column_names()
 
@@ -114,103 +118,8 @@ class DataFarm():
 
         return mapping
 
-
-class CustomDataset(Dataset, DataFarm):
-
-    """
-    Class for loading data from a pandas DataFrame, containing user-product interactions/ratings/purchases
-    plus item side information like product name, product category, etc.
-
-    It returns a PyTorch Dataset object, which can be used to load data in a PyTorch model.
-
-    In the __getitem__ method, the dataset is loaded in batches, and the data is returned as a dictionary.
-
-    Also negative items are sampled from the same dataset, and returned as a dictionary along with their metadata.
-
-    :param dataset: pd.DataFrame
-    :param user_id_col: str
-    :param item_id_col: str
-    :param metadata_id_col: list of str
-    """
-
-    def __len__(self):
-        return self.dataset.shape[0]
-
-    def __getitem__(self, idx):
-
-        return {'user_id': self.dataset.iloc[idx][self.user_id],
-                'pos_item_id': self.dataset.iloc[idx][self.item_id],
-                'pos_metadata_id': [metadata for metadata in self.dataset.iloc[idx][self.metadata_id]],
-                'neg_item_id': self.dataset.iloc[idx]['neg_item'],
-                'neg_metadata_id': [metadata for metadata in self.dataset.iloc[idx][self.negative_metadata_id]]
-                }
-              
-
-class CustomDataLoader(DataFarm):
-
-    def __init__(self, 
-                 dataset: pd.DataFrame, 
-                 user_id_col: str, 
-                 item_id_col: str,
-                 use_metadata: bool, 
-                 metadata_id_col: List[str],
-                 split_ratio: float = 0.8):
-        
-        super().__init__(dataset, user_id_col, item_id_col, use_metadata, metadata_id_col, split_ratio)
-
-        self.user_id_col = user_id_col
-        self.item_id_col = item_id_col
-        self.metadata_id_col = metadata_id_col
-        self.use_metadata = use_metadata
-
-    def fit(self):
-
-        cols = [self.user_id_col, self.item_id_col, 'neg_item']
-        
-        if self.use_metadata:
-            cols += ['pos_metadata_id', 'neg_metadata_id']
-
-        dataset = self.dataset[cols]
-
-        if self.split_ratio < 1:
-
-            df_train, df_test = train_test_split(dataset, test_size=1-self.split_ratio)
-
-            return df_train, df_test
-
-        else:
-            return dataset
-    
-    def _minibatch(self, dataset, batch_size: int):
-        
-        for idx in range(0, dataset.shape[0], batch_size):
-            batch = dataset.iloc[idx:idx+batch_size]
-            yield batch.reset_index()
-
-    def get_batch(self, dataset, batch_size: int):
-
-        for batch in self._minibatch(dataset, batch_size):
-
-            if self.use_metadata:
-
-                yield  {
-                        'user_id': torch.from_numpy(batch[self.user_id_col].values),
-                        'pos_item_id': torch.from_numpy(batch[self.item_id_col].values),
-                        'neg_item_id': torch.from_numpy(batch['neg_item'].values),
-                        'pos_metadata_id': torch.Tensor(batch['pos_metadata_id']).long(),
-                        'neg_metadata_id': torch.Tensor(batch['neg_metadata_id']).long()
-                        }
-
-            else:
-                
-                yield  {
-                        'user_id': torch.from_numpy(batch[self.user_id_col].values),
-                        'pos_item_id': torch.from_numpy(batch[self.item_id_col].values),
-                        'neg_item_id': torch.from_numpy(batch['neg_item'].values)
-                        }
                         
-                        
-class ProcessData(DataFarm):
+class ProcessData(Data):
 
     def __init__(self, 
                  dataset: pd.DataFrame, 
@@ -228,7 +137,7 @@ class ProcessData(DataFarm):
         self.use_metadata = use_metadata
 
 
-    def fit(self):
+    def _fit(self):
 
         cols = [self.user_id_col, self.item_id_col, 'neg_item']
         
@@ -236,6 +145,12 @@ class ProcessData(DataFarm):
             cols += ['pos_metadata_id', 'neg_metadata_id']
 
         dataset = self.dataset[cols]
+
+        new_cols = ['user_id', 'pos_item_id', 'neg_item_id']
+        if self.use_metadata:
+            new_cols += ['pos_metadata_id', 'neg_metadata_id']
+
+        dataset.columns = new_cols
 
         if self.split_ratio < 1:
 
@@ -246,16 +161,36 @@ class ProcessData(DataFarm):
         else:
             return dataset
 
-    def write_dataset(self, dataset, path: str):
 
-        dataset.to_csv(path, index=False)                 
+    def write_data(self, path: str):
+
+        config =  {
+                   'num_users': self.num_users,
+                   'num_items': self.num_items,
+                   'num_metadata': self.metadata_size
+                  }
+
+        with open(f'{path}/config.json', 'w') as file:
+            json.dump(config, file)
+
+        if self.split_ratio < 1:
+
+            train, test = self._fit()
+
+            train.to_csv(f'{path}/train.csv', index=False)
+            test.to_csv(f'{path}/test.csv', index=False)
+
+        else:
+            train = self._fit()    
+            train.to_csv(f'{path}/train.csv', index=False)             
 
 
 class FastDataLoader:
-    """
-    A DataLoader-like object that parse a CSV chunk by chunk.
-    """
-    def __init__(self, path, batch_size=32):
+    
+    def __init__(self, 
+                 path, 
+                 use_metadata, 
+                 batch_size=32):
         """
         Initialize a FastTensorDataLoader.
         :param *tensors: tensors to store. Must have the same length @ dim 0.
@@ -263,17 +198,13 @@ class FastDataLoader:
         :param shuffle: if True, shuffle the data *in-place* whenever an
             iterator is created out of this object.
         :returns: A FastTensorDataLoader.
-        """        
+        """
         self.tensors = pd.read_csv(path, chunksize=batch_size)
                 
         self.dataset_len = batch_size
         self.batch_size = batch_size
 
-        # Calculate # batches
-        n_batches, remainder = divmod(self.dataset_len, self.batch_size)
-        if remainder > 0:
-            n_batches += 1
-        self.n_batches = n_batches
+        self.use_metadata = use_metadata
         
     def __iter__(self):
         self.i = 0
@@ -284,7 +215,7 @@ class FastDataLoader:
         if self.i >= self.dataset_len:
             raise StopIteration
         
-        batch = self.tensors.get_chunk().iloc[self.i: self.i+self.batch_size]
+        batch = self.tensors.get_chunk().reset_index()
         
         self.i += self.batch_size
         self.dataset_len += batch.shape[0]
@@ -292,20 +223,17 @@ class FastDataLoader:
         if self.use_metadata:
 
             return  {
-                    'user_id': torch.from_numpy(batch[self.user_id_col].values),
-                    'pos_item_id': torch.from_numpy(batch[self.item_id_col].values),
-                    'neg_item_id': torch.from_numpy(batch['neg_item'].values),
-                    'pos_metadata_id': torch.Tensor(batch['pos_metadata_id']).long(),
-                    'neg_metadata_id': torch.Tensor(batch['neg_metadata_id']).long()
+                    'user_id': torch.from_numpy(batch['user_id'].values),
+                    'pos_item_id': torch.from_numpy(batch['pos_item_id'].values),
+                    'neg_item_id': torch.from_numpy(batch['neg_item_id'].values),
+                    'pos_metadata_id': torch.Tensor(batch['pos_metadata_id'].apply(ast.literal_eval)).long(),
+                    'neg_metadata_id': torch.Tensor(batch['neg_metadata_id'].apply(ast.literal_eval)).long()
                     }
 
         else:
                 
             return  {
-                    'user_id': torch.from_numpy(batch[self.user_id_col].values),
-                    'pos_item_id': torch.from_numpy(batch[self.item_id_col].values),
+                    'user_id': torch.from_numpy(batch['user_id'].values),
+                    'pos_item_id': torch.from_numpy(batch['pos_item_id'].values),
                     'neg_item_id': torch.from_numpy(batch['neg_item'].values)
                     }
-    
-    def __len__(self):
-        return self.n_batches

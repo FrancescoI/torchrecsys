@@ -7,7 +7,6 @@ from torchrecsys.helper.cuda import gpu
 class MLP(torch.nn.Module):
     
     def __init__(self, 
-                 dataloader,
                  n_users, 
                  n_items, 
                  n_metadata, 
@@ -16,8 +15,6 @@ class MLP(torch.nn.Module):
                  use_cuda=False):
                  
         super(MLP, self).__init__()
-
-        self.dataloader = dataloader
 
         self.n_users = n_users
         self.n_items = n_items

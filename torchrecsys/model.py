@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import torch
-import numpy as np
+import json
+from torchrecsys.dataset.dataset import FastDataLoader
 from torchrecsys.collaborative.linear import Linear
 from torchrecsys.collaborative.mlp import MLP
 from torchrecsys.collaborative.fm import FM
@@ -36,8 +37,8 @@ class TorchRecSys(torch.nn.Module):
         Use CUDA as backend. Default to False
     """
     
-    def __init__(self, 
-                 dataloader, 
+    def __init__(self,
+                 path: str, 
                  n_factors: int = 80, 
                  net_type: str = 'linear', 
                  use_metadata: bool = False, 
@@ -45,12 +46,12 @@ class TorchRecSys(torch.nn.Module):
                  debug: bool = False):
 
         super().__init__()
-             
-        self.dataloader = dataloader
 
-        self.n_users = dataloader.num_users
-        self.n_items = dataloader.num_items      
-        self.metadata_size = dataloader.metadata_size
+        self.path = path     
+        self.config = self._read_metadata(self.path)
+        self.n_users = self.config.get('num_users')
+        self.n_items = self.config.get('num_items')      
+        self.metadata_size = self.config.get('num_metadata')
 
         self.n_factors = n_factors
         
@@ -63,6 +64,13 @@ class TorchRecSys(torch.nn.Module):
 
         self._init_net(net_type=net_type)
 
+    def _read_metadata(self, path):
+
+        with open(f'{path}/config.json') as json_file:    
+            config = json.load(json_file)
+
+        return config
+
     def _init_net(self, net_type='linear'):
 
         assert net_type in ('linear', 'mlp', 'neucf', 'fm', 'lstm'), 'Net type must be one of "linear", "mlp", "neu", "ease" or "lstm"'
@@ -71,8 +79,7 @@ class TorchRecSys(torch.nn.Module):
 
           print('Linear Collaborative Filtering')
 
-          self.net = Linear(dataloader=self.dataloader,
-                            n_users=self.n_users, 
+          self.net = Linear(n_users=self.n_users, 
                             n_items=self.n_items, 
                             n_metadata=self.metadata_size, 
                             n_factors=self.n_factors, 
@@ -83,8 +90,7 @@ class TorchRecSys(torch.nn.Module):
 
             print('Multi Layer Perceptron')
 
-            self.net = MLP(dataloader=self.dataloader,
-                           n_users=self.n_users, 
+            self.net = MLP(n_users=self.n_users, 
                            n_items=self.n_items, 
                            n_metadata=self.metadata_size, 
                            n_factors=self.n_factors, 
@@ -95,8 +101,7 @@ class TorchRecSys(torch.nn.Module):
 
             print('Factorization Machine')
 
-            self.net = FM(dataloader=self.dataloader,
-                          n_users=self.n_users, 
+            self.net = FM(n_users=self.n_users, 
                           n_items=self.n_items, 
                           n_metadata=self.metadata_size, 
                           n_factors=self.n_factors, 
@@ -110,8 +115,6 @@ class TorchRecSys(torch.nn.Module):
             NotImplementedError('LSTM not implemented yet')
 
         self.net = gpu(self.net, self.use_cuda)
-
-        self.train, self.test = self.dataloader.fit()
 
 
     def forward(self, net, batch):
@@ -146,14 +149,15 @@ class TorchRecSys(torch.nn.Module):
       
     def fit(self, optimizer, epochs=10, batch_size=512):
         
-        print('|-- Training model')
-        for epoch in range(epochs):
+        for _ in range(epochs):
 
             self.net = self.net.train()
-
-            print(f'Epoch: {epoch+1}')
             
-            for batch in self.dataloader.get_batch(self.train, batch_size):
+            train_loader = FastDataLoader(path=f'{self.path}/train.csv',
+                                          use_metadata=self.use_metadata,
+                                          batch_size=batch_size)
+            
+            for batch in train_loader:
 
                 mini_batch = {}
 
@@ -181,7 +185,11 @@ class TorchRecSys(torch.nn.Module):
         auc = []
         hit_rate = []
 
-        for batch in self.dataloader.get_batch(self.test, batch_size):
+        test_loader = FastDataLoader(path=f'{self.path}/test.csv',
+                                     use_metadata=self.use_metadata,
+                                     batch_size=batch_size)
+
+        for batch in test_loader:
 
             mini_batch = {}
 

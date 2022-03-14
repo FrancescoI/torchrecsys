@@ -19,7 +19,6 @@ class FM(torch.nn.Module):
     """
     
     def __init__(self, 
-                 dataloader,
                  n_users, 
                  n_items, 
                  n_metadata, 
@@ -28,8 +27,6 @@ class FM(torch.nn.Module):
                  use_cuda=False):
         
         super(FM, self).__init__()
-
-        self.dataloader = dataloader
 
         self.n_users = n_users
         self.n_items = n_items
@@ -73,7 +70,7 @@ class FM(torch.nn.Module):
         user_embedding = self.user(user).reshape(user.shape[0], 1, self.n_factors)
         item_embedding = self.item(item).reshape(item.shape[0], 1, self.n_factors)
 
-        #### metadata
+        #### FM
         if self.use_metadata:
             metadata = batch[metadata_key]
             
