@@ -199,7 +199,14 @@ class FastDataLoader:
             iterator is created out of this object.
         :returns: A FastTensorDataLoader.
         """
-        self.tensors = pd.read_csv(path, chunksize=batch_size)
+        if use_metadata:
+            self.tensors = pd.read_csv(path,
+                                       converters={'pos_metadata_id': eval,
+                                                   'neg_metadata_id': eval}, 
+                                       chunksize=batch_size)
+
+        else:
+            self.tensors = pd.read_csv(path, chunksize=batch_size)
                 
         self.dataset_len = batch_size
         self.batch_size = batch_size
@@ -226,8 +233,8 @@ class FastDataLoader:
                     'user_id': torch.from_numpy(batch['user_id'].values),
                     'pos_item_id': torch.from_numpy(batch['pos_item_id'].values),
                     'neg_item_id': torch.from_numpy(batch['neg_item_id'].values),
-                    'pos_metadata_id': torch.Tensor(batch['pos_metadata_id'].apply(ast.literal_eval)).long(),
-                    'neg_metadata_id': torch.Tensor(batch['neg_metadata_id'].apply(ast.literal_eval)).long()
+                    'pos_metadata_id': torch.Tensor(batch['pos_metadata_id']).long(),
+                    'neg_metadata_id': torch.Tensor(batch['neg_metadata_id']).long()
                     }
 
         else:
