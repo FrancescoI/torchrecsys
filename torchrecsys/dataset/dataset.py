@@ -171,7 +171,12 @@ class ProcessData(Data):
 
         else:
             train = self._fit()    
-            train.to_csv(f'{path}/train.csv', index=False)             
+            train.to_csv(f'{path}/train.csv', index=False)
+
+        if self.metadata_id_col:
+            meta = super()._get_metadata(self.dataset)
+            meta.columns = ['pos_item_id'] + self.metadata_id_col         
+            meta.to_csv(f'{path}/meta.csv', index=False)             
 
 
 class FastDataLoader:

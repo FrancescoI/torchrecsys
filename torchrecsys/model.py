@@ -245,16 +245,26 @@ class TorchRecSys(torch.nn.Module):
     def _create_inference_batch(self, user_id):
 
         dataframe = pd.DataFrame({'user_id': [user_id] * self.n_items,
-                                  'item_id': list(range(self.n_items)),
+                                  'pos_item_id': list(range(self.n_items)),
                                 })
 
-        metadata = self.dataloader._get_metadata()
-        metadata.columns = ['item_id'] + self.dataloader.metadata_id
+        if self.metadata_name:
+            metadata = self._get_metadata()
+            dataframe = pd.merge(dataframe, metadata, on='pos_item_id', how='inner')
+            dataframe['pos_metadata_id'] = dataframe[self.metadata_name].values.tolist()
 
-        dataframe = pd.merge(dataframe, metadata, on='item_id', how='inner')
-        dataframe['pos_metadata_id'] = dataframe[self.dataloader.metadata_id].values.tolist()
-
-        return {'user_id': torch.from_numpy(dataframe['user_id'].values),
-                'pos_item_id': torch.from_numpy(dataframe['item_id'].values),
-                'pos_metadata_id': torch.Tensor(dataframe['pos_metadata_id']).long(),
+        batch = {
+                'user_id': torch.from_numpy(dataframe['user_id'].values),
+                'pos_item_id': torch.from_numpy(dataframe['pos_item_id'].values)
                 }
+
+        if self.metadata_name:
+            batch.update({'pos_metadata_id': torch.Tensor(dataframe['pos_metadata_id']).long()})
+
+        return batch
+
+    def _get_metadata(self):
+        
+        metadata = pd.read_csv(f'{self.path}/meta.csv')
+            
+        return metadata
