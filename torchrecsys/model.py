@@ -11,6 +11,7 @@ from torchrecsys.helper.loss import hinge_loss
 from torchrecsys.helper.evaluate import auc_score
 from torchrecsys.evaluate.metrics import Metrics
 import pandas as pd
+from typing import List
 
 
 class TorchRecSys(torch.nn.Module):
@@ -41,7 +42,7 @@ class TorchRecSys(torch.nn.Module):
                  path: str, 
                  n_factors: int = 80, 
                  net_type: str = 'linear', 
-                 use_metadata: bool = False, 
+                 metadata_name: List[str] = None, 
                  use_cuda: bool = False,
                  debug: bool = False):
 
@@ -58,7 +59,12 @@ class TorchRecSys(torch.nn.Module):
         self.use_cuda = use_cuda
 
         self.net_type = net_type
-        self.use_metadata = use_metadata
+        
+        if metadata_name:
+            self.metadata_name = metadata_name
+            self.use_metadata = True
+        else:
+            self.use_metadata = False
 
         self.debug = debug
 
@@ -154,7 +160,7 @@ class TorchRecSys(torch.nn.Module):
             self.net = self.net.train()
             
             train_loader = FastDataLoader(path=f'{self.path}/train.csv',
-                                          use_metadata=self.use_metadata,
+                                          metadata_name=self.metadata_name,
                                           batch_size=batch_size)
             
             for batch in train_loader:
@@ -186,7 +192,7 @@ class TorchRecSys(torch.nn.Module):
         hit_rate = []
 
         test_loader = FastDataLoader(path=f'{self.path}/test.csv',
-                                     use_metadata=self.use_metadata,
+                                     metadata_name=self.metadata_name,
                                      batch_size=batch_size)
 
         for batch in test_loader:
