@@ -18,7 +18,6 @@ class Data:
                  dataset: pd.DataFrame, 
                  user_id_col: str, 
                  item_id_col: str,
-                 use_metadata: bool = False, 
                  metadata_id_col: List[str] = None,
                  split_ratio: float = 0.8):
         
@@ -32,13 +31,10 @@ class Data:
 
         self.dataset = self._get_negative_items(self.dataset)
 
-        self.use_metadata = use_metadata
-
         self.split_ratio = split_ratio
         
-        if use_metadata:
+        if metadata_id_col:
             self.metadata_id = metadata_id_col
-            self.dataset = self._add_positive_metadata(self.dataset)
             self.dataset = self._add_negative_metadata(self.dataset)
             self.negative_metadata_id = self._get_negative_metadata_column_names()
             self.metadata_size = self._get_metadata_size(self.metadata_id)
@@ -62,12 +58,6 @@ class Data:
 
         return dataset
 
-    def _add_positive_metadata(self, dataset):
-
-        dataset['pos_metadata_id'] = self.dataset[self.metadata_id].values.tolist()
-
-        return dataset
-
     def _get_metadata(self, dataset):
 
         metadata = (dataset
@@ -86,8 +76,6 @@ class Data:
         metadata.columns = ['neg_item'] + metadata_negative_names
 
         dataset = pd.merge(dataset, metadata, on='neg_item')
-
-        dataset['neg_metadata_id'] = dataset[metadata_negative_names].values.tolist()
 
         return dataset
 
@@ -125,30 +113,31 @@ class ProcessData(Data):
                  dataset: pd.DataFrame, 
                  user_id_col: str, 
                  item_id_col: str,
-                 use_metadata: bool, 
-                 metadata_id_col: List[str],
-                 split_ratio: float):
+                 metadata_id_col: List[str] = None,
+                 split_ratio: float = 0.9):
 
-        super().__init__(dataset, user_id_col, item_id_col, use_metadata, metadata_id_col, split_ratio)
+        super().__init__(dataset, user_id_col, item_id_col, metadata_id_col, split_ratio)
 
         self.user_id_col = user_id_col
         self.item_id_col = item_id_col
-        self.metadata_id_col = metadata_id_col
-        self.use_metadata = use_metadata
-
+        
+        if metadata_id_col:
+            self.metadata_id_col = metadata_id_col
 
     def _fit(self):
 
         cols = [self.user_id_col, self.item_id_col, 'neg_item']
         
-        if self.use_metadata:
-            cols += ['pos_metadata_id', 'neg_metadata_id']
-
+        if self.metadata_id_col:
+            cols += self.metadata_id_col
+            cols += ['neg_' + meta for meta in self.metadata_id_col]
+            
         dataset = self.dataset[cols]
 
         new_cols = ['user_id', 'pos_item_id', 'neg_item_id']
-        if self.use_metadata:
-            new_cols += ['pos_metadata_id', 'neg_metadata_id']
+        if self.metadata_id_col:
+            new_cols += self.metadata_id_col
+            new_cols += ['neg_' + meta for meta in self.metadata_id_col]
 
         dataset.columns = new_cols
 
@@ -189,7 +178,7 @@ class FastDataLoader:
     
     def __init__(self, 
                  path, 
-                 use_metadata, 
+                 metadata_name=None, 
                  batch_size=32):
         """
         Initialize a FastTensorDataLoader.
@@ -199,19 +188,19 @@ class FastDataLoader:
             iterator is created out of this object.
         :returns: A FastTensorDataLoader.
         """
-        if use_metadata:
-            self.tensors = pd.read_csv(path,
-                                       converters={'pos_metadata_id': eval,
-                                                   'neg_metadata_id': eval}, 
-                                       chunksize=batch_size)
-
-        else:
-            self.tensors = pd.read_csv(path, chunksize=batch_size)
+        self.tensors = pd.read_csv(path, chunksize=batch_size)
+        
+        if metadata_name:
+            self.metadata_name = metadata_name
                 
         self.dataset_len = batch_size
         self.batch_size = batch_size
 
-        self.use_metadata = use_metadata
+    def _combine_metadata(self, dataset, metadata):
+
+        metadata_col = dataset[metadata].values.tolist()
+
+        return metadata_col
         
     def __iter__(self):
         self.i = 0
@@ -227,7 +216,10 @@ class FastDataLoader:
         self.i += self.batch_size
         self.dataset_len += batch.shape[0]
         
-        if self.use_metadata:
+        if self.metadata_name:
+
+            batch['pos_metadata_id'] = self._combine_metadata(dataset=batch, metadata=self.metadata_name)
+            batch['neg_metadata_id'] = self._combine_metadata(dataset=batch, metadata=['neg_' + meta for meta in self.metadata_name])
 
             return  {
                     'user_id': torch.from_numpy(batch['user_id'].values),
