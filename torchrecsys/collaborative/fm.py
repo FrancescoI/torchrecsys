@@ -39,21 +39,21 @@ class FM(torch.nn.Module):
 
         self.n_input = self.n_users + self.n_items
         
-        self.user = ScaledEmbedding(self.n_users, self.n_factors)
-        self.item = ScaledEmbedding(self.n_items, self.n_factors)
+        self.user = ScaledEmbedding(self.n_users, self.n_factors, sparse=True)
+        self.item = ScaledEmbedding(self.n_items, self.n_factors, sparse=True)
                 
-        self.linear_user = ScaledEmbedding(self.n_users, 1)
-        self.linear_item = ScaledEmbedding(self.n_items, 1)
+        self.linear_user = ScaledEmbedding(self.n_users, 1, sparse=True)
+        self.linear_item = ScaledEmbedding(self.n_items, 1, sparse=True)
 
         if use_metadata:
 
             self.n_distinct_metadata = len(self.n_metadata.keys())
             
             self.metadata = torch.nn.ModuleList(
-                                [ScaledEmbedding(size, self.n_factors) for _ , size in self.n_metadata.items()])
+                                [ScaledEmbedding(size, self.n_factors, sparse=True) for _ , size in self.n_metadata.items()])
 
             self.linear_metadata = torch.nn.ModuleList(
-                                [ScaledEmbedding(size, 1) for _ , size in self.n_metadata.items()])
+                                [ScaledEmbedding(size, 1, sparse=True) for _ , size in self.n_metadata.items()])
 
 
 

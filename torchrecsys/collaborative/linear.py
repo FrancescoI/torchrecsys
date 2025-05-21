@@ -42,13 +42,13 @@ class Linear(torch.nn.Module):
         
         if use_metadata:
             self.metadata = torch.nn.ModuleList(
-                                [ScaledEmbedding(size, self.n_factors) for _ , size in self.n_metadata.items()])
+                                [ScaledEmbedding(size, self.n_factors, sparse=True) for _ , size in self.n_metadata.items()])
         
-        self.user = ScaledEmbedding(self.n_users, self.n_factors)
-        self.item = ScaledEmbedding(self.n_items, self.n_factors)
+        self.user = ScaledEmbedding(self.n_users, self.n_factors, sparse=True)
+        self.item = ScaledEmbedding(self.n_items, self.n_factors, sparse=True)
         
-        self.user_bias = ZeroEmbedding(self.n_users, 1)
-        self.item_bias = ZeroEmbedding(self.n_items, 1)
+        self.user_bias = ZeroEmbedding(self.n_users, 1, sparse=True)
+        self.item_bias = ZeroEmbedding(self.n_items, 1, sparse=True)
     
     
     def forward(self, batch, user_key, item_key, metadata_key=None):
