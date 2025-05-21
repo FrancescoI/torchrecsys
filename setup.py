@@ -4,7 +4,7 @@ setup(
     name='torchrecsys',
     version='v0.2.0',
     packages=find_packages(),
-    install_requires=['torch', 'pandas', 'scipy', 'numpy', 'sklearn'],
+    install_requires=['torch', 'pandas', 'scipy', 'numpy', 'scikit-learn'],
     license='MIT',
     description='A PyTorch implementation of several collaborative filters and sequence model for recommendation systems',
     author='Francesco Imbriglia',
