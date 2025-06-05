@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import torch
+from typing import List
 from torchrecsys.embeddings.init_embeddings import ScaledEmbedding
 from torchrecsys.helper.cuda import gpu
 
