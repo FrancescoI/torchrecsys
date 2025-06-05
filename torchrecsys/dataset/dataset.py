@@ -100,7 +100,13 @@ class Data:
 
         grouping_col = [self.item_id] + self.metadata_id
 
-        data = self.dataset.groupby(grouping_col, as_index=False).agg({self.user_id: 'count'}).sort_values('product_code')
+        # Sort by the item identifier to keep items in a consistent order
+        data = (
+            self.dataset
+            .groupby(grouping_col, as_index=False)
+            .agg({self.user_id: 'count'})
+            .sort_values(self.item_id)
+        )
 
         dummies = None
         for metadata in grouping_col:
