@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-import sys
-sys.path.append('C:/Users/imbrigliaf/Documents/torchrecsys/')
-
 from torchrecsys.model import *
 from torchrecsys.dataset.dataset import *
 
