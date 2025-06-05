@@ -1,8 +1,5 @@
-import sys
-sys.path.append('C:/Users/imbrigliaf/Documents/torchrecsys/')
-
-import pytest
 import numpy as np
+import pytest
 from torchrecsys.evaluate.metrics import *
 
 
